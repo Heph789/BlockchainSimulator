@@ -1,5 +1,11 @@
-const crypto = require('crypto');
+//Classes for blockchain interaction
 
+const st = require('./StandardTools.js');
+
+//@desc The class for a transaction object
+//@param fromAdd The address the transaction is from
+//@param toAdd The address the transaction goes to
+//@param amount Self-explanatory
 class Transaction {
   constructor(fromAdd, toAdd, amount) {
     this.fromAdd = fromAdd;
@@ -7,43 +13,41 @@ class Transaction {
     this.amount = amount;
   }
 }
-class Block {
-  constructor(previousBlockHash, transactions, merkleRoot) {
+
+//@desc class for a block's data excluding it's hash
+class BlockData {
+  constructor(previousBlockHash, transactions, merkleRoot, nonce) {
     this.previousBlockHash = previousBlockHash;
     this.transactions = transactions;
     this.merkleRoot = merkleRoot;
+    this.nonce = nonce;
   }
 }
-
+//@des class for a Blockchain
+//@param address Address for the starting money
+//@param total Amount of money to start the blockchain with
 class Blockchain {
-  const LEAD = "0000";
   constructor(address, total) {
-    let newBlock = new Block(
+    let newBlock = new BlockData(
       0,
       new Transaction(0, address, total),
       0
       );
-    let nonce = findNonce(JSON.stringify(newBlock));
+    this.LEAD = "0000";
+    let _hash = st.findNonce(newBlock, this.LEAD);
+    this.blocks = [{data:newBlock, hash:_hash}];
+    this.transactions = [];
   }
-  /*addBlock(block, nonce) {
-
+  addBlock(block) {
+    if(block.data instanceof BlockData && block.hash.length>0)
+      this.blocks.push(block);
   }
-  sendMoney(amount, address) {
-
-  }*/
-  findNonce(data) {
-    let hashObj = crypto.createHash('sha256');
-    let hash = "";
-    let nonce = 0;
-    do {
-      if(!hashObj.write(data+nonce))
-        hash.once('drain',
-          function() {hashObj.write(data)}
-        );
-      hash = hashObj.read().toString('hex');
-      nonce++;
-    } while(hash.substring(0, 4) !== "0000");
-    return [nonce, hash];
+  sendMoney(amount, currentAddress, address) {
+    this.transactions.push(new Transaction(currentAddress, address, amount));
   }
+}
 
+module.exports = {
+  Blockchain: Blockchain,
+  BlockData: BlockData
 }
