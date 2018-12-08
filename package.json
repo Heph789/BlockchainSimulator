@@ -1,0 +1,25 @@
+{
+  "name": "blockchainsimulator",
+  "version": "1.0.0",
+  "description": "A simulated and interactive proof of work blockchain",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Heph789/BlockchainSimulator.git"
+  },
+  "keywords": [
+    "blockchain"
+  ],
+  "author": "Chase Jeter",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Heph789/BlockchainSimulator/issues"
+  },
+  "homepage": "https://github.com/Heph789/BlockchainSimulator#readme",
+  "dependencies": {
+    "commander": "^2.19.0"
+  }
+}

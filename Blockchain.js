@@ -38,9 +38,11 @@ class Blockchain {
     this.blocks = [{data:newBlock, hash:_hash}];
     this.transactions = [];
   }
+
   addBlock(block) {
     if(block.data instanceof BlockData && block.hash.length>0)
       this.blocks.push(block);
+      this.transactions = [];
   }
   sendMoney(amount, currentAddress, address) {
     this.transactions.push(new Transaction(currentAddress, address, amount));
