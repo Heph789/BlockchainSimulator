@@ -47,6 +47,25 @@ class Blockchain {
   sendMoney(amount, currentAddress, address) {
     this.transactions.push(new Transaction(currentAddress, address, amount));
   }
+  verify() {
+    let errorMessages = [];
+    for(let i = 0; i<this.blocks.length; i++) {
+
+      let data = this.blocks[i].data;
+      let hash = this.blocks[i].hash;
+
+      if(i>0 && data.previousHash != this.blocks[i-1].hash)
+        errorMessages.push("Hash does not match previous hash at " + i + ": "+ data.previousBlockHash + "!=" + this.blocks[i-1].hash);
+
+      if (st.findHash(JSON.stringify(data)) !== hash)
+        errorMessages.push("Hash is incorrect" + " at " + i + ": " + st.findHash(JSON.stringify(data)));
+
+      if(hash.substring(0, this.LEAD.length) !== this.LEAD)
+        errorMessages.push("Hash does not have leading digits" + " at " + i);
+
+    }
+    return errorMessages;
+  }
 }
 
 module.exports = {

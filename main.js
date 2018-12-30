@@ -15,7 +15,7 @@ var currentAddress = addresses[0];
 var blockchain = new Blockchain(currentAddress, 1);
 var obj = JSON.parse(fs.readFileSync("./blockchain.json"));
 for (var prop in obj) {
-  blockchain[prop] = obj[prop]
+  blockchain[prop] = obj[prop];
 }
 
 function createNewBlockchain(amount) {
@@ -31,7 +31,7 @@ function printBlockchain() {
 
 function transact(amount, toAddress) {
   let intAmount = parseInt(amount);
-  blockchain.sendMoney(intAmount, currentAddress, toAddress)
+  blockchain.sendMoney(intAmount, currentAddress, toAddress);
 }
 
 function addBlock() {
@@ -93,6 +93,14 @@ program
   .description('adds a block')
   .action(() => {
     addBlock();
+  });
+
+program
+  .command('verifyBlockchain')
+  .alias('v')
+  .description('verifies the blockchain')
+  .action(() => {
+    blockchain.verify();
   });
 
 program.parse(process.argv);

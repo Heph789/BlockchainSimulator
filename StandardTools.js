@@ -1,22 +1,24 @@
 //Standard (not malicious) tools for adding a block to the blockchain
 
-const crypto = require("crypto")
+const crypto = require("crypto");
 
-//finds the hash of data
-function findHash(data) {
+var findHash = function(data) {
   let hashObj = crypto.createHash('sha256');
   hashObj.update(data);
   let hash = hashObj.digest('hex');
   return hash;
 }
 
+//finds the hash of data
+module.exports.findHash = findHash;
+
 //finds the nonce of a blockchain and returns the hash once the nonce is found
 module.exports.findNonce = function(block, LEAD) {
-  let hash = "";
   block.nonce = 0;
-  do {
-    hash = findHash(JSON.stringify(block));
+  let hash = findHash(JSON.stringify(block));
+  while(hash.substring(0, LEAD.length) !== LEAD) {
     block.nonce++;
-  } while(hash.substring(0, LEAD.length) !== LEAD);
+    hash = findHash(JSON.stringify(block));
+  }
   return hash;
 }
