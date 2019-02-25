@@ -9,7 +9,7 @@ const st = require("./StandardTools.js");
 const fs = require("fs");
 const program = require("commander");
 
-var addresses = ["Chase", "Duncan", "Wesley", "Justin"]
+var addresses = ["Chase", "Duncan", "Wesley", "Justin"];
 var currentAddress = addresses[0];
 
 var blockchain = new Blockchain(currentAddress, 1);
@@ -38,6 +38,16 @@ function addBlock() {
   let previousHash = blockchain.blocks[blockchain.blocks.length-1].hash;
   let myBlockData = new BlockData(previousHash, blockchain.transactions, 0, 0);
   let hash = st.findNonce(myBlockData, blockchain.LEAD);
+  blockchain.addBlock(
+    {
+      data: myBlockData,
+      hash: hash
+    }
+  );
+}
+
+function addCustomBlock(hash, nonce, previousHash) {
+  let myBlockData = new BlockData(previousHash, blockchain.transactions, 0, nonce);
   blockchain.addBlock(
     {
       data: myBlockData,
@@ -100,7 +110,15 @@ program
   .alias('v')
   .description('verifies the blockchain')
   .action(() => {
-    blockchain.verify();
+    console.log(blockchain.verify());
+  });
+
+program
+  .command('addCustomBlock <hash> <nonce> <previousHash>')
+  .alias('acb')
+  .description('adds a custom block to the blockchain using custom <hash> and <nonce>. <previousHash is supposed to be the hash of the previous block')
+  .action((hash, nonce, previousHash) => {
+    addCustomBlock(hash, nonce, previousHash);
   });
 
 program.parse(process.argv);

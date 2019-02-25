@@ -23,6 +23,7 @@ class BlockData {
     this.nonce = nonce;
   }
 }
+
 //@des class for a Blockchain
 //@param address Address for the starting money
 //@param total Amount of money to start the blockchain with
@@ -40,13 +41,16 @@ class Blockchain {
   }
 
   addBlock(block) {
-    if(block.data instanceof BlockData && block.hash.length>0)
+    if(block.data instanceof BlockData && block.hash.length>0) {
       this.blocks.push(block);
       this.transactions = [];
+    }
   }
+
   sendMoney(amount, currentAddress, address) {
     this.transactions.push(new Transaction(currentAddress, address, amount));
   }
+
   verify() {
     let errorMessages = [];
     for(let i = 0; i<this.blocks.length; i++) {
@@ -54,14 +58,14 @@ class Blockchain {
       let data = this.blocks[i].data;
       let hash = this.blocks[i].hash;
 
-      if(i>0 && data.previousHash != this.blocks[i-1].hash)
-        errorMessages.push("Hash does not match previous hash at " + i + ": "+ data.previousBlockHash + "!=" + this.blocks[i-1].hash);
+      if(i>0 && data.previousBlockHash != this.blocks[i-1].hash)
+        errorMessages.push("Hash does not match previous hash at block " + i + ": "+ data.previousBlockHash + "!=" + this.blocks[i-1].hash);
 
-      if (st.findHash(JSON.stringify(data)) !== hash)
-        errorMessages.push("Hash is incorrect" + " at " + i + ": " + st.findHash(JSON.stringify(data)));
+      if (st.findHash(JSON.stringify(data)) != hash)
+        errorMessages.push("Hash is incorrect" + " at block " + i + ": " + st.findHash(JSON.stringify(data)));
 
       if(hash.substring(0, this.LEAD.length) !== this.LEAD)
-        errorMessages.push("Hash does not have leading digits" + " at " + i);
+        errorMessages.push("Hash does not have leading digits" + " at block " + i);
 
     }
     return errorMessages;
