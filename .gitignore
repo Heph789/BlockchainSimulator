@@ -1,0 +1,4 @@
+# ignores the state of the blockchain
+state/
+
+.DS_Store

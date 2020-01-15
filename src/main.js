@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /*
   Author: Chase Jeter
   Date: April 2019
@@ -20,7 +22,7 @@ const _privKey = "d287fd14ea6f15635804fa633b6c0ca31598641faa20f50d09d2e147c6106b
 
 
 var blockchain = new Blockchain("", 1, eventEmitter);
-var data = JSON.parse(fs.readFileSync("./blockchain.json"));
+var data = JSON.parse(fs.readFileSync("state/blockchain.json"));
 if(data) {
   var blockchainObj = data.blockchain;
   var addresses = data.addresses;
@@ -31,7 +33,7 @@ if(data) {
 blockchain.eventEmitter = eventEmitter;
 
 let wallet = new Wallet([], eventEmitter, blockchain);
-wallet.uploadData("./wallet.json");
+wallet.uploadData("state/wallet.json");
 
 function createNewBlockchain(amount) {
   let intAmount = parseInt(amount);
@@ -173,5 +175,5 @@ const obj = {
   blockchain: blockchain,
   addresses: addresses
 }
-fs.writeFileSync("./blockchain.json", JSON.stringify(obj));
-wallet.saveData("./wallet.json");
+fs.writeFileSync("state/blockchain.json", JSON.stringify(obj));
+wallet.saveData("state/wallet.json");
