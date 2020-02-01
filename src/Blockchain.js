@@ -36,7 +36,8 @@ class Output {
 
 //@desc class for a block's data excluding it's hash
 class BlockData {
-  constructor(previousBlockHash, transactions, merkleRoot, nonce) {
+  constructor(blockNumber, previousBlockHash, transactions, merkleRoot, nonce) {
+    this.blockNumber = blockNumber;
     this.previousBlockHash = previousBlockHash;
     this.transactions = transactions;
     this.merkleRoot = merkleRoot;
@@ -93,10 +94,28 @@ class Blockchain {
         errorMessages.push("Hash is incorrect" + " at block " + i + ": " + st.findHash(JSON.stringify(data)));
 
       if(hash.substring(0, this.LEAD.length) !== this.LEAD)
-        errorMessages.push("Hash does not have leading digits" + " at block " + i);
+        errorMessages.push("Hash does not have leading digits at block " + i);
 
     }
     return errorMessages;
+  }
+}
+
+class Ledger {
+  constructor(blocks) {
+    this.blocks = [];
+    if(blocks)
+      this.blocks = blocks;
+  }
+
+  addBlock(block) {
+    this.blocks.push(block);
+  }
+
+  getLastBlock() {
+    if(this.blocks.length > 0)
+      return this.blocks[this.blocks.length-1];
+    throw new Error("Ledger size is 0");
   }
 }
 
@@ -105,5 +124,6 @@ module.exports = {
   BlockData: BlockData,
   Input: Input,
   Output: Output,
-  Transaction: Transaction
+  Transaction: Transaction,
+  Ledger: Ledger
 }

@@ -18,24 +18,19 @@ const Wallet = require("./wallet.js");
 const _pubKey = "036302e5b318785148af1eb7744a4d2cbd5380d4d8faab29b1f80cd7665f066c9e";
 const _privKey = "d287fd14ea6f15635804fa633b6c0ca31598641faa20f50d09d2e147c6106be5";
 
-const config = {
-  LEAD: "0000"
-}
 
-function _cast(toCast, obj) {
-  for (let prop in obj)
-    toCast[prop] = obj[prop];
-}
 
-var data = JSON.parse(fs.readFileSync("state/state.json"));
-var nodes, addresses;
+
+var blockchain = new Blockchain("", 1, eventEmitter);
+var data = JSON.parse(fs.readFileSync("state/blockchain.json"));
 if(data) {
-  {nodes, addresses} = data;
+  var blockchainObj = data.blockchain;
+  var addresses = data.addresses;
+  for (var prop in blockchainObj) {
+    blockchain[prop] = blockchainObj[prop];
+  }
 }
-else{
-  nodes = [];
-  addresses = [];
-}
+blockchain.eventEmitter = eventEmitter;
 
 let wallet = new Wallet([], eventEmitter, blockchain);
 wallet.uploadData("state/wallet.json");
