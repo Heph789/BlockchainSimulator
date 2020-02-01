@@ -5,9 +5,11 @@
 const {Transaction, Output, Ledger, BlockData} = require("./Blockchain.js");
 const st = require('./StandardTools.js');
 const fs = require('fs');
+const fsPromises = fs.promises;
 const EventEmitter = require('events');
 const eventEmitter = new EventEmitter();
 const Wallet = require("./wallet.js");
+const assert = require('assert').strict;
 
 // Contributing node on the blockchain that mines blocks
 class Node {
@@ -21,7 +23,8 @@ class Node {
     this.config = config;
     this._wallet = wallet;
     this.id = id;
-    this._createNewLedger();
+    if(peer) this._fromPeer(peer);
+    else this._createNewLedger();
     // if(peer) _fromPeer(peer);
     // else if(!(_uploadFromState())) {
     //   _createNewLedger();
@@ -43,7 +46,7 @@ class Node {
     };
     let toSave = JSON.stringify(state);
     let filePath = 'state/node' + this.id + '.json';
-    return fsPromises.writeFile(filePath, toSave).then(()=>(true))
+    return fsPromises.writeFile(filePath, toSave)
       .catch((err) => {
         console.log(err.code);
         console.log(err.message);
@@ -66,7 +69,7 @@ class Node {
   _fromPeer(peer) {
     this.ledger = peer.ledger;
     this.config = peer.config;
-    this.peers.add(peer);
+    this.peers.push(peer);
   }
 
   /*
@@ -98,8 +101,9 @@ class Node {
 
   // Mines a block, adds it to this node's ledger, and broadcasts the ledger
   mineBlock() {
-    let previousHash = this.ledger.blocks[this.ledger.blocks.length-1].hash;
-    let myBlockData = new BlockData(previousHash, this.transactions, 0, 0);
+    let previousHash = this.ledger.getLastBlock().hash;
+    let blockNum = this.ledger.getLastBlock().data.blockNumber+1;
+    let myBlockData = new BlockData(blockNum, previousHash, this.transactions, 0, 0);
     let hash = st.findNonce(myBlockData, this.config.LEAD);
     let block =
       {
@@ -149,8 +153,8 @@ class Node {
     let data = block.data;
     let hash = block.hash;
 
-    //previous block hash of the block must match the actual block has of the last block in this node's ledger
-    if(data.blockNumber != 0 && data.previousBlockHash != this.ledger.getLastBlock().hash)
+    //previous block hash of the block must match the actual block hash of the last block in this node's ledger
+    if(data.blockNumber != 0 && data.previousBlockHash != this.ledger.blocks[data.blockNumber-1].hash)
       errorMessages.push("Hash does not match previous hash: "+ data.previousBlockHash + " != " + this.ledger.getLastBlock().hash);
 
     //must hash correctly
@@ -172,20 +176,70 @@ class Node {
   }
 }
 
-//Testing for this
+// Tests for creating a new node with ledger
+console.log("Does _createNewLedger() work?");
 const config = {
   LEAD: "0000"
 }
 let wallet = new Wallet([], eventEmitter, null);
-console.log(JSON.stringify(wallet));
-let testNode = new Node(0, "", config, 1, wallet);
+let testNode = new Node(null, "", config, 1, wallet);
 let replacer = function(key, value) {
   if(key === "wallet")
     return undefined;
   return value;
 }
-console.log(JSON.stringify(testNode, replacer, ' '));
-console.log(Object.getPrototypeOf(testNode.ledger.getLastBlock().data));
-console.log(BlockData.prototype);
-//console.log(block.data instanceof BlockData);
-console.log(testNode.verify(testNode.ledger.getLastBlock()));
+let err = testNode.verify(testNode.ledger.getLastBlock());
+if(err.length > 0) {
+  console.log("No.");
+  console.log(err);
+  console.log("JSON: \n"+JSON.stringify(testNode, replacer, ' '));
+}
+else {
+  console.log("Yes.")
+}
+
+// TESTING MINING A BLOCK
+// broadcastBlock() has not been tested and is required for mineBlock(). Replaces it with a filler function.
+let broadcastBlock = testNode.broadcastBlock;
+testNode.broadcastBlock = (block) => {
+  return;
+}
+console.log("Does mining a block work?")
+testNode.mineBlock();
+assert.equal(testNode.ledger.chainSize(), 2, "Block not added to ledger");
+err = testNode.verify(testNode.ledger.getLastBlock());
+let message = err + "\nJSON:\n"+JSON.stringify(testNode.ledger, replacer, ' ');
+assert(err.length===0, message);
+console.log("Yes.");
+testNode.broadcastBlock = broadcastBlock;
+
+// TESTING ADDING NODE FROM PEER
+console.log("Does adding node from peer work?");
+let peerNode = new Node(testNode, "", null, 2, wallet);
+assert.deepEqual(peerNode.ledger, testNode.ledger, "The ledger objects do not match");
+assert.deepEqual(peerNode.peers[0], testNode, "Node not added as a peer ");
+assert.deepEqual(peerNode.config, testNode.config, "Config objects do not match.");
+console.log("Yes.");
+
+// TESTING SAVING TO STATE
+console.log("Does saving to state work?");
+const statePromise = testNode.saveState();
+let actualState;
+let expectedState;
+statePromise.then((success) => {
+  if(success === false)
+    return;
+  const path = 'state/node' + testNode.id + '.json';
+  const as = fs.readFileSync(path, 'utf8');
+  expectedState = {node: {}, ledger: testNode.ledger.blocks};
+  for(let key in testNode) {
+    if(key.charAt(0)!='_' && key!="ledger")
+      expectedState.node[key] = testNode[key];
+  };
+  const es = JSON.stringify(expectedState);
+  assert.equal(as, es, `Actual: \n${as}\nExpected:\n${es}`);
+  console.log("Yes.");
+})
+.catch((err) => {
+  console.log(err.message);
+});

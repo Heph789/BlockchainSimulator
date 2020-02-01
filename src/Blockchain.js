@@ -112,9 +112,13 @@ class Ledger {
     this.blocks.push(block);
   }
 
+  chainSize() {
+    return this.blocks.length;
+  }
+
   getLastBlock() {
-    if(this.blocks.length > 0)
-      return this.blocks[this.blocks.length-1];
+    if(this.chainSize() > 0)
+      return this.blocks[this.chainSize()-1];
     throw new Error("Ledger size is 0");
   }
 }
