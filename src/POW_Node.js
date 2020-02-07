@@ -23,12 +23,12 @@ class Node {
     this.config = config;
     this._wallet = wallet;
     this.id = id;
+    // if(peer) this._fromPeer(peer);
+    // else this._createNewLedger();
     if(peer) this._fromPeer(peer);
-    else this._createNewLedger();
-    // if(peer) _fromPeer(peer);
-    // else if(!(_uploadFromState())) {
-    //   _createNewLedger();
-    // }
+    else if(!(this._uploadFromState())) {
+      this._createNewLedger();
+    }
   }
 
   /*
@@ -59,7 +59,20 @@ class Node {
     @returns a boolean value. True if there is a state to upload from. False if otherwise.
   */
   _uploadFromState() {
-
+    let rawState = "";
+    try {
+      rawState = fs.readFileSync('state/node' + this.id + '.json');
+    } catch (err) {
+      if (err.message.indexOf('ENOENT: no such file or directory') === -1)
+        throw err;
+    }
+    if (rawState.length===0)
+      return false;
+    const state = JSON.parse(rawState);
+    for (let prop in state.node)
+      this[prop] = state.node[prop];
+    this.ledger = new Ledger(state.ledger);
+    return true;
   }
 
   /*
@@ -176,70 +189,119 @@ class Node {
   }
 }
 
-// Tests for creating a new node with ledger
-console.log("Does _createNewLedger() work?");
 const config = {
-  LEAD: "0000"
+  LEAD: "0"
 }
 let wallet = new Wallet([], eventEmitter, null);
-let testNode = new Node(null, "", config, 1, wallet);
-let replacer = function(key, value) {
-  if(key === "wallet")
-    return undefined;
-  return value;
+var state = {
+  testNode: null,
+  replacer: null,
+  _maintain: false
 }
-let err = testNode.verify(testNode.ledger.getLastBlock());
-if(err.length > 0) {
-  console.log("No.");
-  console.log(err);
-  console.log("JSON: \n"+JSON.stringify(testNode, replacer, ' '));
-}
-else {
-  console.log("Yes.")
-}
+var stateStack = [];
 
-// TESTING MINING A BLOCK
-// broadcastBlock() has not been tested and is required for mineBlock(). Replaces it with a filler function.
-let broadcastBlock = testNode.broadcastBlock;
-testNode.broadcastBlock = (block) => {
-  return;
-}
-console.log("Does mining a block work?")
-testNode.mineBlock();
-assert.equal(testNode.ledger.chainSize(), 2, "Block not added to ledger");
-err = testNode.verify(testNode.ledger.getLastBlock());
-let message = err + "\nJSON:\n"+JSON.stringify(testNode.ledger, replacer, ' ');
-assert(err.length===0, message);
-console.log("Yes.");
-testNode.broadcastBlock = broadcastBlock;
-
-// TESTING ADDING NODE FROM PEER
-console.log("Does adding node from peer work?");
-let peerNode = new Node(testNode, "", null, 2, wallet);
-assert.deepEqual(peerNode.ledger, testNode.ledger, "The ledger objects do not match");
-assert.deepEqual(peerNode.peers[0], testNode, "Node not added as a peer ");
-assert.deepEqual(peerNode.config, testNode.config, "Config objects do not match.");
-console.log("Yes.");
-
-// TESTING SAVING TO STATE
-console.log("Does saving to state work?");
-const statePromise = testNode.saveState();
-let actualState;
-let expectedState;
-statePromise.then((success) => {
-  if(success === false)
-    return;
-  const path = 'state/node' + testNode.id + '.json';
-  const as = fs.readFileSync(path, 'utf8');
-  expectedState = {node: {}, ledger: testNode.ledger.blocks};
-  for(let key in testNode) {
-    if(key.charAt(0)!='_' && key!="ledger")
-      expectedState.node[key] = testNode[key];
+function createNewState() {
+  if(state._maintain) {
+    state._maintain = false;
+    return false;
+  }
+  state.testNode = new Node(null, "", config, 1, wallet);
+  state.replacer = function(key, value) {
+    if(key === "wallet")
+      return undefined;
+    return value;
   };
-  const es = JSON.stringify(expectedState);
-  assert.equal(as, es, `Actual: \n${as}\nExpected:\n${es}`);
-  console.log("Yes.");
-})
-.catch((err) => {
-  console.log(err.message);
-});
+}
+
+function maintainState() {
+  state._maintain = true;
+}
+
+let testFuncs = [
+
+  // Tests for creating a new node with ledger
+  async function test_CreateNewLedger() {
+    console.log("Does _createNewLedger() work?");
+    let err = state.testNode.verify(state.testNode.ledger.getLastBlock());
+    assert(!(err.length>0), err + "\nJSON: \n" + JSON.stringify(state.testNode, state.replacer, ' '))
+    console.log("Yes.");
+  },
+
+  // TESTING MINING A BLOCK
+  async function testMineBlock() {
+    // broadcastBlock() has not been tested and is required for mineBlock(). Replaces it with a filler function.
+    let broadcastBlock = state.testNode.broadcastBlock;
+    state.testNode.broadcastBlock = (block) => {
+      return;
+    }
+    console.log("Does mining a block work?")
+    state.testNode.mineBlock();
+    assert.equal(state.testNode.ledger.chainSize(), 2, "Block not added to ledger");
+    err = state.testNode.verify(state.testNode.ledger.getLastBlock());
+    let message = err + "\nJSON:\n"+JSON.stringify(state.testNode.ledger, state.replacer, ' ');
+    assert(err.length===0, message);
+    console.log("Yes.");
+    state.testNode.broadcastBlock = broadcastBlock;
+  },
+
+  // TESTING ADDING NODE FROM PEER
+  async function testFromPeer() {
+    console.log("Does adding node from peer work?");
+    let peerNode = new Node(state.testNode, "", null, 2, wallet);
+    assert.deepEqual(peerNode.ledger, state.testNode.ledger, "The ledger objects do not match");
+    assert.deepEqual(peerNode.peers[0], state.testNode, "Node not added as a peer ");
+    assert.deepEqual(peerNode.config, state.testNode.config, "Config objects do not match.");
+    console.log("Yes.");
+  },
+
+  // TESTING SAVING TO STATE
+  async function testSaveState() {
+    let actualState;
+    let expectedState;
+    return state.testNode.saveState().then((success) => {
+      console.log("Does saving to state work?");
+      assert(!(success===false), "Saving to state did not succeed.");
+      const path = 'state/node' + state.testNode.id + '.json';
+      const as = fs.readFileSync(path, 'utf8');
+      expectedState = {node: {}, ledger: state.testNode.ledger.blocks};
+      for(let key in state.testNode) {
+        if(key.charAt(0)!='_' && key!="ledger")
+          expectedState.node[key] = state.testNode[key];
+      };
+      const es = JSON.stringify(expectedState);
+      assert.equal(as, es, `Actual: \n${as}\nExpected:\n${es}`);
+      console.log("Yes.");
+      maintainState();
+    });
+  },
+
+  // TESTING UPLOADING FROM STATE
+  async function testUploadFromState() {
+    console.log("Does uploading from state work?");
+    let newNode = new Node(null, null, null, 1, wallet);
+    let compareNode = JSON.parse(JSON.stringify(state.testNode));
+    newNode = JSON.parse(JSON.stringify(newNode));
+    assert.deepEqual(newNode, compareNode);
+    console.log("Yes.");
+  }
+];
+
+function _errHandler(err) {
+  //console.error(err.toString());
+  console.error(err.stack);
+  process.exit(1);
+}
+
+
+
+(async function() {
+  Error.stackTraceLimit = 2;
+  const path = 'state/node' + 1 + '.json';
+  try {
+    fs.unlinkSync(path);
+  } catch (err) {_errHandler(err)}
+  for(let func of testFuncs) {
+    createNewState();
+    await func().catch(_errHandler);
+  }
+})();
