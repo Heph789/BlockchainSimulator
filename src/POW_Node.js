@@ -16,7 +16,7 @@ class Node {
   /*
     @param connectedNode The node that this node gets its record of the blockchain from
   */
-  constructor(peer, address, config, id, wallet) {
+  constructor(peer, address, config, id, wallet, flag) {
     this.address = address;
     this.peers = [];
     this.ledger = new Ledger([]);
@@ -25,10 +25,10 @@ class Node {
     this.id = id;
     // if(peer) this._fromPeer(peer);
     // else this._createNewLedger();
-    if(peer) this._fromPeer(peer);
-    else if(!(this._uploadFromState())) {
-      this._createNewLedger();
-    }
+    if(flag === "p") this._fromPeer(peer);
+    else if(flag==="u") this._uploadFromState();
+    else if (flag==="c") this._createNewLedger();
+    else throw new Error("Invalid flag.");
   }
 
   /*
@@ -48,8 +48,7 @@ class Node {
     let filePath = 'state/node' + this.id + '.json';
     return fsPromises.writeFile(filePath, toSave)
       .catch((err) => {
-        console.log(err.code);
-        console.log(err.message);
+        console.log("\n" + err.stack);
         return false;
       });
   }
@@ -105,6 +104,7 @@ class Node {
     let _hash = st.findNonce(newBlock, this.config.LEAD);
     let blocks = [{data:newBlock,hash:_hash}];
     this.ledger = new Ledger(blocks);
+    this._wallet.receiveBlock(blocks[0]);
   }
 
   // Adds to the list of this node's open transactions
@@ -125,6 +125,7 @@ class Node {
       };
     this.ledger.addBlock(block);
     this.broadcastBlock(block);
+    this.transactions = [];
   }
 
   /*
@@ -187,6 +188,15 @@ class Node {
   getLedger() {
     return this.ledger;
   }
+
+  toString() {
+    let toString = JSON.stringify(this, (key, value) => {
+      if(key.charAt(0)==='_' || key==="ledger")
+        return undefined;
+      return value;
+    }, ' ');
+    return toString;
+  }
 }
 
 const config = {
@@ -205,7 +215,7 @@ function createNewState() {
     state._maintain = false;
     return false;
   }
-  state.testNode = new Node(null, "", config, 1, wallet);
+  state.testNode = new Node(null, "", config, 1, wallet, "c");
   state.replacer = function(key, value) {
     if(key === "wallet")
       return undefined;
@@ -247,7 +257,7 @@ let testFuncs = [
   // TESTING ADDING NODE FROM PEER
   async function testFromPeer() {
     console.log("Does adding node from peer work?");
-    let peerNode = new Node(state.testNode, "", null, 2, wallet);
+    let peerNode = new Node(state.testNode, "", null, 2, wallet, "p");
     assert.deepEqual(peerNode.ledger, state.testNode.ledger, "The ledger objects do not match");
     assert.deepEqual(peerNode.peers[0], state.testNode, "Node not added as a peer ");
     assert.deepEqual(peerNode.config, state.testNode.config, "Config objects do not match.");
@@ -278,7 +288,7 @@ let testFuncs = [
   // TESTING UPLOADING FROM STATE
   async function testUploadFromState() {
     console.log("Does uploading from state work?");
-    let newNode = new Node(null, null, null, 1, wallet);
+    let newNode = new Node(null, null, null, 1, wallet, "u");
     let compareNode = JSON.parse(JSON.stringify(state.testNode));
     newNode = JSON.parse(JSON.stringify(newNode));
     assert.deepEqual(newNode, compareNode);
@@ -294,7 +304,7 @@ function _errHandler(err) {
 
 
 
-(async function() {
+async function runTests() {
   Error.stackTraceLimit = 2;
   const path = 'state/node' + 1 + '.json';
   try {
@@ -304,4 +314,7 @@ function _errHandler(err) {
     createNewState();
     await func().catch(_errHandler);
   }
-})();
+};
+// runTests();
+
+module.exports = Node;

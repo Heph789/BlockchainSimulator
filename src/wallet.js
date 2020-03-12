@@ -17,38 +17,40 @@ class Wallet {
     this.eventEmitter = eventEmitter;
     this.inputs = {};
     this.blockchain = blockchain;
+    this.peers = [];
 
     this.eventEmitter.on('block', (block) => {
-      let transactions = block.data.transactions;
-      for(let fullTransaction of transactions) {
-        let transaction = fullTransaction.data;
-        let outputs = transaction.outputs;
+    });
+  }
 
-        for (let i in outputs) {
+  receiveBlock(block) {
+    let transactions = block.data.transactions;
+    for(let fullTransaction of transactions) {
+      let transaction = fullTransaction.data;
+      let outputs = transaction.outputs;
 
-          for(let address of this.addresses) {
-            if(outputs[i].pubKey == address.pubKey) {
-              if(this.inputs[address]) {
-                this.inputs[address.pubKey].push({
-                  txHash: fullTransaction.hash,
-                  index: i,
-                  value: outputs[i].value
-                });
-              }
-              else {
-                this.inputs[address.pubKey] = [{
-                  txHash: fullTransaction.hash,
-                  index: i,
-                  value: outputs[i].value
-                }];
-              }
+      for (let i in outputs) {
+
+        for(let address of this.addresses) {
+          if(outputs[i].pubKey == address.pubKey) {
+            if(this.inputs[address]) {
+              this.inputs[address.pubKey].push({
+                txHash: fullTransaction.hash,
+                index: i,
+                value: outputs[i].value
+              });
+            }
+            else {
+              this.inputs[address.pubKey] = [{
+                txHash: fullTransaction.hash,
+                index: i,
+                value: outputs[i].value
+              }];
             }
           }
-
         }
-
       }
-    });
+    }
   }
 
   createAddress() {
@@ -68,32 +70,45 @@ class Wallet {
   transact(toAddress, value) {
     let fromAddress = this.currentAddress.pubKey;
     let privKey = this.currentAddress.privKey;
-    if (!this.inputs[fromAddress])
-      return false;
     let inputs = this.inputs[fromAddress];
-    let theseInputs = [];
-    let valueSum = 0;
-    let i = 0;
-    while(valueSum < value && i < inputs.length) {
-      valueSum += inputs[i].value;
-      theseInputs.push(new Input(inputs[i].txHash, inputs[i].index, ec.sign(Buffer.from(privKey, 'hex'), Buffer.from(inputs[i].txHash, 'hex'))));
-      i++;
-    }
-    let change = valueSum - value;
+    if (!inputs || inputs < 0)
+      throw new Error("No inputs belonging to address: " + fromAddress);
+
+    let neededInputs = [];
+    let change = _getSufficientInputs(this.inputs[fromAddress], value, neededInputs);
     let outputs = [];
     console.log(change);
+
     if(change < 0)
-      return false
+      throw new Error("Insufficient amount. Has: " + valueSum + ". Needs: " + value);
     if(change == 0)
       outputs.push(new Output(value, toAddress));
     else {
       outputs = [new Output(value, toAddress), new Output(change, fromAddress)];
     }
+
     let transaction = new Transaction(theseInputs, outputs, null);
     transaction.hash = st.findHash(JSON.stringify(transaction.data));
-    this.blockchain.broadcastTransaction(transaction);
-    inputs.splice(0, i);
+    this.broadcastTransaction(transaction);
+    inputs.splice(0, neededInputs.length);
     return true;
+  }
+  _getSufficientInputs(totalInputs, value, neededInputs) {
+    let theseInputs = [];
+    let valueSum = 0;
+    let i = 0;
+    while(valueSum < value && i < totalInputs.length) {
+      valueSum += inputs[i].value;
+      neededInputs.push(new Input(totalInputs[i].txHash, totalInputs[i].index, ec.sign(Buffer.from(privKey, 'hex'), Buffer.from(totalInputs[i].txHash, 'hex'))));
+      i++;
+    }
+    return valueSum - value;
+  }
+
+  broadcastTransaction(transaction) {
+    for (let peer in this.peers) {
+      peer.addTransaction(transaction);
+    }
   }
 
   uploadData(path) {

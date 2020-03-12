@@ -121,8 +121,11 @@ class Ledger {
       return this.blocks[this.chainSize()-1];
     throw new Error("Ledger size is 0");
   }
-}
 
+  toString() {
+    return JSON.stringify(this.blocks, null, ' ');;
+  }
+}
 module.exports = {
   Blockchain: Blockchain,
   BlockData: BlockData,
