@@ -2,6 +2,7 @@ const {randomBytes} = require('crypto');
 const ec = require('secp256k1');
 const fs = require("fs");
 const Blockchain = require("./Blockchain.js");
+const { Network } = require("./Network.js");
 
 const Output = Blockchain.Output;
 const Input = Blockchain.Input;
@@ -15,33 +16,43 @@ class Wallet {
     if(this.addresses.length > 0)
       this.setAddress(0);
     this.eventEmitter = eventEmitter;
-    this.inputs = {};
+    // references to outputs with other relevant transaction data
+    this.outputs = {};
     this.blockchain = blockchain;
     this.peers = [];
+  }
 
-    this.eventEmitter.on('block', (block) => {
-    });
+  addPeer(peer) {
+    if(this.peers.length === 0) {
+      Network.listen(this, peer.networkID, "newBlock", this.receiveBlock);
+    }
+    this.peers.push(peer);
   }
 
   receiveBlock(block) {
+    console.log("Receiving");
     let transactions = block.data.transactions;
     for(let fullTransaction of transactions) {
       let transaction = fullTransaction.data;
       let outputs = transaction.outputs;
 
       for (let i in outputs) {
-
+        console.log("Loop count: " + i);
         for(let address of this.addresses) {
+          console.log("Address: ", address);
           if(outputs[i].pubKey == address.pubKey) {
-            if(this.inputs[address]) {
-              this.inputs[address.pubKey].push({
+            console.log(this.outputs);
+            if(this.outputs[address.pubKey] instanceof Array) {
+              console.log("Pushing");
+              this.outputs[address.pubKey].push({
                 txHash: fullTransaction.hash,
                 index: i,
                 value: outputs[i].value
               });
             }
             else {
-              this.inputs[address.pubKey] = [{
+              console.log("Creating new");
+              this.outputs[address.pubKey] = [{
                 txHash: fullTransaction.hash,
                 index: i,
                 value: outputs[i].value
@@ -70,45 +81,68 @@ class Wallet {
   transact(toAddress, value) {
     let fromAddress = this.currentAddress.pubKey;
     let privKey = this.currentAddress.privKey;
-    let inputs = this.inputs[fromAddress];
-    if (!inputs || inputs < 0)
+    // the list of output references belonging to the address trying to send money
+    let potInputs = this.outputs[fromAddress];
+    if (!potInputs || potInputs < 0)
       throw new Error("No inputs belonging to address: " + fromAddress);
 
-    let neededInputs = [];
-    let change = _getSufficientInputs(this.inputs[fromAddress], value, neededInputs);
+    // change: the difference between amount needed and total amount from outputs
+    // inputs: the inputs to be used in the transaction
+    let { change, inputs } = this._getSufficientOutputs(potInputs, value);
+    //array of transaction outputs
     let outputs = [];
-    console.log(change);
 
     if(change < 0)
-      throw new Error("Insufficient amount. Has: " + valueSum + ". Needs: " + value);
+      throw new Error("Insufficient amount. Has: " + (value+change) + ". Needs: " + value);
     if(change == 0)
       outputs.push(new Output(value, toAddress));
     else {
       outputs = [new Output(value, toAddress), new Output(change, fromAddress)];
     }
 
-    let transaction = new Transaction(theseInputs, outputs, null);
+    let transaction = new Transaction(inputs, outputs, null);
     transaction.hash = st.findHash(JSON.stringify(transaction.data));
     this.broadcastTransaction(transaction);
-    inputs.splice(0, neededInputs.length);
+    // removes the used outputs from the wallet's list
+    this.outputs[fromAddress].splice(0, inputs.length);
     return true;
   }
-  _getSufficientInputs(totalInputs, value, neededInputs) {
+
+  getBalance() {
+    let balance = 0;
+    this.outputs[this.currentAddress.pubKey].forEach(function addBalance(output) {balance+=parseInt(output.value)});
+    return balance;
+  }
+
+  /*
+    @desc gets sufficient outputs to meet the value and returns change and inputs
+    @param totalOutputs the list of outputs available
+    @returns object with change and inputs
+  */
+  _getSufficientOutputs(totalOutputs, value) {
+
     let theseInputs = [];
     let valueSum = 0;
     let i = 0;
-    while(valueSum < value && i < totalInputs.length) {
-      valueSum += inputs[i].value;
-      neededInputs.push(new Input(totalInputs[i].txHash, totalInputs[i].index, ec.sign(Buffer.from(privKey, 'hex'), Buffer.from(totalInputs[i].txHash, 'hex'))));
+    let privKey = this.currentAddress.privKey;
+
+    while(valueSum < value && i < totalOutputs.length) {
+      let output = totalOutputs[i];
+      valueSum += totalOutputs[i].value;
+      // signs transaction hash of referenced output with private key
+      let sigObj = ec.sign(Buffer.from(privKey, 'hex'), Buffer.from(output.txHash, 'hex'));
+      let sig = Buffer.from(sigObj.signature).toString('hex');
+      let input = new Input(output.txHash, output.index, sig);
+      theseInputs.push(input);
       i++;
     }
-    return valueSum - value;
+    return {change: valueSum - value, inputs: theseInputs};
   }
 
   broadcastTransaction(transaction) {
-    for (let peer in this.peers) {
-      peer.addTransaction(transaction);
-    }
+    this.peers.forEach(function bc(peer) {
+      Network.send(peer.networkID, "transaction", transaction);
+    });
   }
 
   uploadData(path) {
@@ -116,13 +150,13 @@ class Wallet {
     this.addresses = walletData.addresses;
     if(walletData.currentAddress)
       this.currentAddress = walletData.currentAddress;
-    this.inputs = walletData.inputs;
+    this.outputs = walletData.outputs;
   }
 
   saveData(path) {
     let walletData = {
       addresses: this.addresses,
-      inputs: this.inputs,
+      outputs: this.outputs,
       currentAddress: this.currentAddress
     };
     fs.writeFileSync(path, JSON.stringify(walletData));

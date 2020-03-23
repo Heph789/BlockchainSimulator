@@ -10,6 +10,7 @@ const EventEmitter = require('events');
 const eventEmitter = new EventEmitter();
 const Wallet = require("./wallet.js");
 const assert = require('assert').strict;
+const { Network } = require('./Network.js');
 
 // Contributing node on the blockchain that mines blocks
 class Node {
@@ -21,14 +22,20 @@ class Node {
     this.peers = [];
     this.ledger = new Ledger([]);
     this.config = config;
+    this.transactions = [];
     this._wallet = wallet;
     this.id = id;
-    // if(peer) this._fromPeer(peer);
-    // else this._createNewLedger();
     if(flag === "p") this._fromPeer(peer);
     else if(flag==="u") this._uploadFromState();
     else if (flag==="c") this._createNewLedger();
     else throw new Error("Invalid flag.");
+
+    //subscriptions
+    Network.onRequest(this, "transaction", this.addTransaction);
+    Network.onRequest(this, "block", this.receiveBlock);
+    Network.onRequest(this, "ledger", this.getLedger);
+    Network.onRequest(this, "peers", this.getPeers);
+    Network.onRequest(this, "config", this.getConfig);
   }
 
   /*
@@ -79,8 +86,9 @@ class Node {
     @param peer the peer node on the network
   */
   _fromPeer(peer) {
-    this.ledger = peer.ledger;
-    this.config = peer.config;
+    this.ledger = Network.request(peer, "ledger");
+    this.config = Network.request(peer, "config");
+    this.peers = Network.request(peer, "peers");
     this.peers.push(peer);
   }
 
@@ -134,8 +142,9 @@ class Node {
   */
   broadcastBlock(block) {
     this.peers.forEach((peer) => {
-      peer.receiveBlock(block);
+      Network.send(peer.networkID, "block", block);
     });
+    Network.emit(this, "newBlock", block);
   }
 
   /*
@@ -187,6 +196,14 @@ class Node {
   */
   getLedger() {
     return this.ledger;
+  }
+
+  getPeers() {
+    return this.peers;
+  }
+
+  getConfig() {
+    return this.config;
   }
 
   toString() {

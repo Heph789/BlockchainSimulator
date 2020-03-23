@@ -17,6 +17,7 @@ class Network {
   // @param String address the address of the node on the network
   static addNode(node, address) {
     Network.nodes[address] = node;
+    node.networkID = address;
   }
 
   /*
@@ -37,10 +38,10 @@ class Network {
     @param location the location of where to listen
     @param callback the callback function to call when sent data to the location
   */
-  static onRequest(that, location, callback) {
-    if(typeof that.request === 'undefined')
-      that.request = {};
-    that.request[location] = callback.bind(that);
+  static onRequest(_this, location, callback) {
+    if(typeof _this.request === 'undefined')
+      _this.request = {};
+    _this.request[location] = callback.bind(_this);
   }
 
   /*
@@ -73,7 +74,7 @@ class Network {
   /*
     @desc calls all listener functions at specified location with data
     @param location the location at which to emit data
-    @data the data to emit 
+    @data the data to emit
   */
   static emit(_this, location, data) {
     Network.listeners[_this.id][location].forEach(function listenerFuncs(func) {
@@ -95,6 +96,7 @@ class Network {
 
   static reset() {
     Network.nodes = {};
+    Network.listeners = {};
   }
 }
 

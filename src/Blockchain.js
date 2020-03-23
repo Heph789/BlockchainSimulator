@@ -19,6 +19,13 @@ class Transaction {
   }
 }
 
+/*
+  @desc An Input references a previous output to prove ownership of coin.
+  @param previousTx the hash of the transaction with the output
+  @param index the index of the referenced output in the transaction
+  @param scriptSig the public key of the address trying to redeem the output and the ECDSA signature of the referenced transaction hash
+                   the signature is made with the private key of the redeemer, and can be verified with the public key of the redeemer
+*/
 class Input {
   constructor(previousTx, index, scriptSig) {
     this.previousTx = previousTx;
@@ -27,6 +34,11 @@ class Input {
   }
 }
 
+/*
+  @desc an output declares ownership of a certain number of coin by a referenced account
+  @param the value given to the referenced account
+  @param pubKey the public key of the referenced account 
+*/
 class Output {
   constructor(value, pubKey) {
     this.value = value;

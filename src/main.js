@@ -16,6 +16,7 @@ const program = require("commander");
 const Wallet = require("./wallet.js");
 const Node = require("./POW_Node.js");
 const assert = require('assert').strict;
+const { Network } = require('./Network.js');
 
 const _pubKey = "036302e5b318785148af1eb7744a4d2cbd5380d4d8faab29b1f80cd7665f066c9e";
 const _privKey = "d287fd14ea6f15635804fa633b6c0ca31598641faa20f50d09d2e147c6106be5";
@@ -41,15 +42,19 @@ try {
 var data, nodes, count, currentNode;
 var loadedNodes = [];
 data = {nodes: [], count: 0, currentNode: null};
-try {
-  data = JSON.parse(fs.readFileSync("state/state.json"));
-  if(!data) {
-    console.log("Throwing");
-    throw new Error();
+
+let rawData = fs.readFileSync("state/state.json");
+data = JSON.parse(rawData);
+data.nodes.forEach(function loadNode(node) {
+  let loadedNode = new Node(null, null, null, node, wallet, "u");
+  loadedNodes.push(loadedNode);
+  Network.addNode(loadedNode, loadedNode.id);
+  wallet.addPeer(loadedNode);
+  if(node == data.currentNode) {
+    currentNode = loadedNode;
   }
-  currentNode = new Node(null, null, null, data.currentNode, wallet, "u");
-}
-catch (err) {}
+});
+
 ({nodes, count} = data);
 
 function _addNode(node) {
@@ -73,11 +78,15 @@ function createNewBlockchain(amount) {
   config.startingAmount = amount;
   wallet = new Wallet([], eventEmitter, null);
   nodes = [];
+  loadedNodes = [];
+  Network.reset();
+  Network.addNode(wallet);
   count = 0;
   const ID = count+1;
   let node = new Node(null, null, config, ID, wallet, "c");
+  Network.addNode(node, node.id);
   _addNode(node);
-  wallet.peers = [node];
+  wallet.addPeer(node);
   currentNode = node;
   printStatus();
 }
@@ -90,42 +99,51 @@ function printLedger() {
 // adds a new node using the current node as the peer
 function addNode() {
   let newNode = new Node(currentNode, null, null, count+1, wallet, "p");
+  Network.addNode(newNode, newNode.id);
+  loadedNodes.forEach((node) => {
+    node.addPeer(newNode);
+  });
   _addNode(newNode);
 }
 
 function transact(toAddress, amount) {
   let intAmount = parseInt(amount);
-  let retVal = "";
+  let retVal = "success";
   try {
     wallet.transact(toAddress, intAmount);
   }
-  catch(err) {
+  catch (err) {
     retVal = err.message;
   }
   return retVal;
 }
 
-function addBlock() {
-  let previousHash = blockchain.blocks[blockchain.blocks.length-1].hash;
-  let myBlockData = new BlockData(previousHash, blockchain.transactions, 0, 0);
-  let hash = st.findNonce(myBlockData, blockchain.LEAD);
-  blockchain.addBlock(
-    {
-      data: myBlockData,
-      hash: hash
-    }
-  );
+function mineBlock() {
+  currentNode.mineBlock();
 }
 
-function addCustomBlock(hash, nonce, previousHash) {
-  let myBlockData = new BlockData(previousHash, blockchain.transactions, 0, nonce);
-  blockchain.addBlock(
-    {
-      data: myBlockData,
-      hash: hash
-    }
-  );
-}
+//
+// function addBlock() {
+//   let previousHash = blockchain.blocks[blockchain.blocks.length-1].hash;
+//   let myBlockData = new BlockData(previousHash, blockchain.transactions, 0, 0);
+//   let hash = st.findNonce(myBlockData, blockchain.LEAD);
+//   blockchain.addBlock(
+//     {
+//       data: myBlockData,
+//       hash: hash
+//     }
+//   );
+// }
+//
+// function addCustomBlock(hash, nonce, previousHash) {
+//   let myBlockData = new BlockData(previousHash, blockchain.transactions, 0, nonce);
+//   blockchain.addBlock(
+//     {
+//       data: myBlockData,
+//       hash: hash
+//     }
+//   );
+// }
 
 
 program
@@ -133,11 +151,11 @@ program
   .description('A simulated and interactive proof of work blockchain');
 
 program
-  .command('addBlock')
-  .alias('ab')
-  .description('adds a block')
+  .command('mineBlock')
+  .alias('mb')
+  .description('mines a block')
   .action(() => {
-    addBlock();
+    mineBlock();
   });
 
 program
@@ -181,8 +199,14 @@ program
   .alias('sm')
   .description('sends money to <toAddress> with the amount <amount>')
   .action((toAddress, amount) => {
-    console.log(transact());
+    console.log(transact(toAddress, amount));
   });
+
+program
+  .command('getBalance')
+  .alias('gb')
+  .description('gets current balance of current account')
+  .action(() => {console.log(wallet.getBalance())});
 
 program
   .command('setAddress <index>')
@@ -191,7 +215,7 @@ program
   .action((index) => {
     wallet.setAddress(index);
     console.log(wallet.currentAddress);
-  })
+  });
 
 program
   .command('status')
