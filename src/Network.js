@@ -26,9 +26,12 @@ class Network {
     @param String location the location on the node to send the data
     @param Object data to pass to the node at address
   */
-  static send(address, location, data) {
+  static send(address, location, rawData) {
     if(typeof Network.nodes[address] === "null" || typeof Network.nodes[address] === "undefined")
       throw new NetworkError("Network address not found.");
+    let data = rawData;
+    if(rawData instanceof Object)
+      data = JSON.stringify(rawData);
     return Network.nodes[address].request[location](data);
   };
 
@@ -51,7 +54,10 @@ class Network {
   */
   static request(address, location) {
     Network._verifyAddressLocation(address, location);
-    return Network.nodes[address].request[location]();
+    let data = Network.nodes[address].request[location]();
+    if(data instanceof Object)
+      data = JSON.stringify(data);
+    return data;
   }
 
   /*
@@ -77,8 +83,11 @@ class Network {
     @data the data to emit
   */
   static emit(_this, location, data) {
+    let newData = data;
+    if(data instanceof Object)
+      newData = JSON.stringify(data);
     Network.listeners[_this.id][location].forEach(function listenerFuncs(func) {
-      func(data);
+      func(newData);
     });
   }
 

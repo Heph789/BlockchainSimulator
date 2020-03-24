@@ -31,8 +31,14 @@ class Node {
     else throw new Error("Invalid flag.");
 
     //subscriptions
-    Network.onRequest(this, "transaction", this.addTransaction);
-    Network.onRequest(this, "block", this.receiveBlock);
+    Network.onRequest(this, "transaction", function recTransaction(data) {
+      this.addTransaction(JSON.parse(data));
+    });
+    Network.onRequest(this, "block", function recBlock(data) {
+      this.receiveBlock(JSON.parse(data));
+    });
+
+    // gives data on request 
     Network.onRequest(this, "ledger", this.getLedger);
     Network.onRequest(this, "peers", this.getPeers);
     Network.onRequest(this, "config", this.getConfig);
@@ -86,9 +92,9 @@ class Node {
     @param peer the peer node on the network
   */
   _fromPeer(peer) {
-    this.ledger = Network.request(peer, "ledger");
-    this.config = Network.request(peer, "config");
-    this.peers = Network.request(peer, "peers");
+    this.ledger = JSON.parse(Network.request(peer, "ledger"));
+    this.config = JSON.parse(Network.request(peer, "config"));
+    this.peers = JSON.parse(Network.request(peer, "peers"));
     this.peers.push(peer);
   }
 
@@ -112,7 +118,7 @@ class Node {
     let _hash = st.findNonce(newBlock, this.config.LEAD);
     let blocks = [{data:newBlock,hash:_hash}];
     this.ledger = new Ledger(blocks);
-    this._wallet.receiveBlock(blocks[0]);
+    this._wallet.receiveBlock(JSON.stringify(blocks[0]));
   }
 
   // Adds to the list of this node's open transactions
@@ -142,7 +148,7 @@ class Node {
   */
   broadcastBlock(block) {
     this.peers.forEach((peer) => {
-      Network.send(peer.networkID, "block", block);
+      Network.send(peer, "block", block);
     });
     Network.emit(this, "newBlock", block);
   }
@@ -152,12 +158,21 @@ class Node {
    @param block block being received
   */
   receiveBlock(block) {
-    let errors = verify(block);
-    if(errors.length === 0)
+    let errors = this.verify(block);
+    if(errors.length === 0) {
       this.ledger.addBlock(block);
-    else
+      // quick fix, eventually transactions will have to be validated and cleaned out every time a new block is added
+      this.transactions = [];
+    }
+    else {
+      console.log("From node " + this.id + ":");
       for (let error of errors)
         console.warn(error);
+    }
+  }
+
+  addPeer(peer) {
+    this.peers.push(peer);
   }
 
   /*
@@ -168,7 +183,7 @@ class Node {
   verify(block) {
     let errorMessages = [];
     //this works for now. Fix this later
-    if(!(block.data instanceof BlockData && typeof block.hash === "string")) {
+    if(!(typeof block.hash === "string")) {
       errorMessages.push("Block data is formatted incorrectly.");
       return errorMessages;
     }

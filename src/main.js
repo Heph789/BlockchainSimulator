@@ -97,11 +97,12 @@ function printLedger() {
 }
 
 // adds a new node using the current node as the peer
+// adds the new node as a peer of all existing nodes
 function addNode() {
-  let newNode = new Node(currentNode, null, null, count+1, wallet, "p");
+  let newNode = new Node(currentNode.networkID, null, null, count+1, wallet, "p");
   Network.addNode(newNode, newNode.id);
   loadedNodes.forEach((node) => {
-    node.addPeer(newNode);
+    node.addPeer(newNode.networkID);
   });
   _addNode(newNode);
 }
@@ -120,6 +121,14 @@ function transact(toAddress, amount) {
 
 function mineBlock() {
   currentNode.mineBlock();
+}
+
+function getNodes() {
+  return nodes;
+}
+
+function setNode(index) {
+  currentNode = loadedNodes[index];
 }
 
 //
@@ -151,14 +160,6 @@ program
   .description('A simulated and interactive proof of work blockchain');
 
 program
-  .command('mineBlock')
-  .alias('mb')
-  .description('mines a block')
-  .action(() => {
-    mineBlock();
-  });
-
-program
   .command('addCustomBlock <hash> <nonce> <previousHash>')
   .alias('acb')
   .description('adds a custom block to the blockchain using custom <hash> and <nonce>. <previousHash> is supposed to be the hash of the previous block')
@@ -185,6 +186,20 @@ program
   });
 
 program
+  .command('createNewNode')
+  .alias('cn')
+  .description('creates a new node with the current node as a peer')
+  .action(() => {
+    addNode();
+  });
+
+program
+  .command('getBalance')
+  .alias('gb')
+  .description('gets current balance of current account')
+  .action(() => {console.log(wallet.getBalance())});
+
+program
   .command('listAddresses')
   .alias('la')
   .description('list all of the addresses in the wallet and the current address')
@@ -195,6 +210,22 @@ program
   })
 
 program
+  .command('listNodes')
+  .alias('ln')
+  .description('list all of the nodes')
+  .action(() => {
+    console.log("Nodes: ", getNodes());
+  })
+
+program
+  .command('mineBlock')
+  .alias('mb')
+  .description('mines a block')
+  .action(() => {
+    mineBlock();
+  });
+
+program
   .command('sendMoney <toAddress> <amount>')
   .alias('sm')
   .description('sends money to <toAddress> with the amount <amount>')
@@ -203,18 +234,20 @@ program
   });
 
 program
-  .command('getBalance')
-  .alias('gb')
-  .description('gets current balance of current account')
-  .action(() => {console.log(wallet.getBalance())});
-
-program
   .command('setAddress <index>')
   .alias('sa')
   .description('sets the current address to the <index> address with the first being 0')
   .action((index) => {
     wallet.setAddress(index);
     console.log(wallet.currentAddress);
+  });
+
+program
+  .command('setNode <index>')
+  .alias('sn')
+  .description('sets the current node to the node at <index>')
+  .action((index) => {
+    setNode(index);
   });
 
 program

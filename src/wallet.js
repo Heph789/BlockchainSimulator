@@ -29,21 +29,18 @@ class Wallet {
     this.peers.push(peer);
   }
 
-  receiveBlock(block) {
-    console.log("Receiving");
+  receiveBlock(rawBlock) {
+    let block = JSON.parse(rawBlock);
     let transactions = block.data.transactions;
+    // console.log("Transactions: ", transactions);
     for(let fullTransaction of transactions) {
       let transaction = fullTransaction.data;
       let outputs = transaction.outputs;
 
       for (let i in outputs) {
-        console.log("Loop count: " + i);
         for(let address of this.addresses) {
-          console.log("Address: ", address);
           if(outputs[i].pubKey == address.pubKey) {
-            console.log(this.outputs);
             if(this.outputs[address.pubKey] instanceof Array) {
-              console.log("Pushing");
               this.outputs[address.pubKey].push({
                 txHash: fullTransaction.hash,
                 index: i,
@@ -51,7 +48,6 @@ class Wallet {
               });
             }
             else {
-              console.log("Creating new");
               this.outputs[address.pubKey] = [{
                 txHash: fullTransaction.hash,
                 index: i,
