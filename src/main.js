@@ -44,7 +44,8 @@ var loadedNodes = [];
 data = {nodes: [], count: 0, currentNode: null};
 
 let rawData = fs.readFileSync("state/state.json");
-data = JSON.parse(rawData);
+if(rawData.length > 0)
+  data = JSON.parse(rawData);
 data.nodes.forEach(function loadNode(node) {
   let loadedNode = new Node(null, null, null, node, wallet, "u");
   loadedNodes.push(loadedNode);
