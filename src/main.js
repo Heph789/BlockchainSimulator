@@ -267,10 +267,10 @@ program
   });
 
 program.parse(process.argv);
-// const obj = {
-//   blockchain: blockchain,
-//   addresses: addresses
-// }
+const obj = {
+  blockchain: blockchain,
+  addresses: addresses
+}
 
 async function saveState() {
   data = {nodes: nodes};

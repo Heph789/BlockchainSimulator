@@ -38,7 +38,7 @@ class Node {
       this.receiveBlock(JSON.parse(data));
     });
 
-    // gives data on request 
+    // gives data on request
     Network.onRequest(this, "ledger", this.getLedger);
     Network.onRequest(this, "peers", this.getPeers);
     Network.onRequest(this, "config", this.getConfig);
@@ -183,7 +183,7 @@ class Node {
   verify(block) {
     let errorMessages = [];
     //this works for now. Fix this later
-    if(!(typeof block.hash === "string")) {
+    if(!(_isTypeOf(block.data, new BlockData()) && typeof block.hash === "string")) {
       errorMessages.push("Block data is formatted incorrectly.");
       return errorMessages;
     }
@@ -204,6 +204,32 @@ class Node {
       errorMessages.push("Hash does not have correct leading digits.");
 
     return errorMessages;
+  }
+
+  _verifyTransaction(transaction) {
+    let errMessages = [];
+
+    if (!(this._isTypeOf(transaction, new Transaction()))) {
+      errMessages.push("Transaction is formatted incorrectly.");
+      return errMessages;
+    }
+
+
+  }
+
+  /*
+    @desc checks if format of obj1 matches format of obj2. Checks recursively for inner objects.
+    @param ob1 object to check
+    @param obj2 object to check against
+  */
+  _isTypeOf(obj1, obj2) {
+    if(typeof obj1 !== 'object') {
+      return false
+    }
+    for(let key in obj2) {
+      if( !obj1.hasOwnProperty(key) || ( typeof obj2[key] === 'object' && !( this._isTypeOf(obj1[key], obj2[key]) ) ) ) return false;
+    }
+    return true;
   }
 
   /*
@@ -247,7 +273,7 @@ function createNewState() {
     state._maintain = false;
     return false;
   }
-  state.testNode = new Node(null, "", config, 1, wallet, "c");
+  state.testNode = new Node(null, "", config, 101, wallet, "c");
   state.replacer = function(key, value) {
     if(key === "wallet")
       return undefined;
@@ -325,6 +351,48 @@ let testFuncs = [
     newNode = JSON.parse(JSON.stringify(newNode));
     assert.deepEqual(newNode, compareNode);
     console.log("Yes.");
+  },
+
+  // TESTING VERIFYING PROPERTIES OF OBJECTS
+  async function test_IsTypeOf() {
+    console.log("Does _isTypeOf() work?");
+    let obj1 = {
+      hello: "content"
+    };
+    let obj2 = {
+      hello: undefined
+    };
+    //testing shallow objects
+    assert(state.testNode._isTypeOf(obj1, obj2));
+
+    obj2 = {
+      hello: {
+        nestedHello: undefined
+      }
+    }
+
+    // testing deep objects
+    assert(!(state.testNode._isTypeOf(obj1, obj2)));
+    obj1 = {
+      hello: {
+        nestedHello: "content"
+      }
+    }
+    assert(state.testNode._isTypeOf(obj1, obj2));
+
+    // testing arrays in objects
+    obj1.helloArray = ["filled", "with", "stuff"];
+    obj2.helloArray = [];
+    assert(state.testNode._isTypeOf(obj1, obj2));
+
+    //testing objects in arrays
+    obj1.helloArray = [JSON.parse(JSON.stringify(obj1))];
+    obj2.helloArray = [JSON.parse(JSON.stringify(obj2))];
+    assert(state.testNode._isTypeOf(obj1, obj2));
+    obj2.helloArray = [{differentHello: ""}];
+    assert(!state.testNode._isTypeOf(obj1, obj2));
+
+    console.log("Yes");
   }
 ];
 
@@ -338,14 +406,14 @@ function _errHandler(err) {
 
 async function runTests() {
   Error.stackTraceLimit = 2;
-  const path = 'state/node' + 1 + '.json';
-  try {
-    fs.unlinkSync(path);
-  } catch (err) {_errHandler(err)}
-  for(let func of testFuncs) {
+  // const path = 'state/node' + 101 + '.json';
+  // try {
+  //   fs.unlinkSync(path);
+  // } catch (err) {_errHandler(err)}
+  //for(let func of testFuncs) {
     createNewState();
-    await func().catch(_errHandler);
-  }
+    await testFuncs[testFuncs.length-1]().catch(_errHandler);
+  //}
 };
 // runTests();
 
