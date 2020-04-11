@@ -9,6 +9,7 @@ const Input = Blockchain.Input;
 const Transaction = Blockchain.Transaction;
 
 const st = require("./StandardTools.js");
+const sc = st.simpleCrypto;
 
 class Wallet {
   constructor(addresses, eventEmitter, blockchain) {
@@ -61,15 +62,9 @@ class Wallet {
   }
 
   createAddress() {
-      let privKey;
-      do {
-        privKey = randomBytes(32)
-      } while (!ec.privateKeyVerify(privKey));
-      const pubKey = ec.publicKeyCreate(privKey);
-      this.addresses.push({privKey: privKey.toString('hex'), pubKey: pubKey.toString('hex')});
-      this.setAddress(this.addresses.length-1);
-      return this.currentAddress;
+      return sc.createAccount();
   }
+
   setAddress(index) {
     this.currentAddress = this.addresses[index];
   }
@@ -97,7 +92,7 @@ class Wallet {
     }
 
     let transaction = new Transaction(inputs, outputs, null);
-    transaction.hash = st.findHash(JSON.stringify(transaction.data));
+    transaction.hash = sc.findHash(JSON.stringify(transaction.data));
     this.broadcastTransaction(transaction);
     // removes the used outputs from the wallet's list
     this.outputs[fromAddress].splice(0, inputs.length);
@@ -121,14 +116,14 @@ class Wallet {
     let valueSum = 0;
     let i = 0;
     let privKey = this.currentAddress.privKey;
+    const pubKey = this.currentAddress.pubKey;
 
     while(valueSum < value && i < totalOutputs.length) {
       let output = totalOutputs[i];
       valueSum += totalOutputs[i].value;
       // signs transaction hash of referenced output with private key
-      let sigObj = ec.sign(Buffer.from(privKey, 'hex'), Buffer.from(output.txHash, 'hex'));
-      let sig = Buffer.from(sigObj.signature).toString('hex');
-      let input = new Input(output.txHash, output.index, sig);
+      let sig = sc.sign(output.txHash, privKey);
+      let input = new Input(output.txHash, output.index, sig, pubKey);
       theseInputs.push(input);
       i++;
     }

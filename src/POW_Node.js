@@ -3,11 +3,13 @@
 */
 
 const {Transaction, Output, Ledger, BlockData} = require("./Blockchain.js");
-const st = require('./StandardTools.js');
+const st = require("./StandardTools.js");
+const sc = st.simpleCrypto;
 const fs = require('fs');
 const fsPromises = fs.promises;
 const EventEmitter = require('events');
 const eventEmitter = new EventEmitter();
+const ec = require('secp256k1');
 const Wallet = require("./wallet.js");
 const assert = require('assert').strict;
 const { Network } = require('./Network.js');
@@ -107,7 +109,7 @@ class Node {
       new Output(this.config.startingAmount, this.address.pubKey)
     ];
     let transaction = new Transaction([], outputs, "");
-    transaction.hash = st.findHash(JSON.stringify(transaction.data));
+    transaction.hash = sc.findHash(JSON.stringify(transaction.data));
     let newBlock = new BlockData(
       0,
       "",
@@ -196,8 +198,8 @@ class Node {
       errorMessages.push("Hash does not match previous hash: "+ data.previousBlockHash + " != " + this.ledger.getLastBlock().hash);
 
     //must hash correctly
-    if (st.findHash(JSON.stringify(data)) != hash)
-      errorMessages.push("Hash is incorrect. The block hash is: " + hash + ". The correct hash is: " + st.findHash(JSON.stringify(data)));
+    if (sc.findHash(JSON.stringify(data)) != hash)
+      errorMessages.push("Hash is incorrect. The block hash is: " + hash + ". The correct hash is: " + sc.findHash(JSON.stringify(data)));
 
     // must have the correct number of leading digits
     if(hash.substring(0, this.config.LEAD.length) !== this.config.LEAD)
@@ -206,29 +208,135 @@ class Node {
     return errorMessages;
   }
 
+  /*
+    @desc verifies transaction
+    @param transaction to verify
+    @returns error message if verification succeeds, empty string if otherwise.
+  */
   _verifyTransaction(transaction) {
     let errMessages = [];
 
-    if (!(this._isTypeOf(transaction, new Transaction()))) {
-      errMessages.push("Transaction is formatted incorrectly.");
-      return errMessages;
+    if (!( this._isTypeOf(transaction, new Transaction([new Input()], [new Output()], "")) )) {
+      return "Transaction is formatted incorrectly.";
     }
 
+    // Verifies the transaction hash
+    let actualHash = sc.findHash(transaction.data);
+    if(!( actualHash === transaction.hash )) {
+      return "Transaction does not match hash.\n\tActual transaction hash: " + actualHash + "\n\tStated transaction hash: ";
+    }
 
+    // Verifies that enough funds are available
+    let { inputs, outputs } = transaction.data;
+    let totalInputValue = 0;
+    for(let input of inputs) {
+      let tx = this._searchTransaction(input.previousTx);
+      if(tx == null)
+        return "Transaction for input does not exist";
+      // Verifies that the referenced output has never been referenced before
+      if(!this._isReferenced(input.previousTx, input.index))
+        return "Output has already been referenced";
+      // Verifies that the given index is in the range of real outputs in the referenced transaction
+      if(input.index >= tx.outputs.length)
+        return "Output index is out of range. Outputs length: " + tx.outputs.length + ". Index: " + input.index;
+      const output = tx.outputs[input.index];
+      // Verifies that referenced output public address matches the public address of the redeeming account
+      if(!(output.pubKey === input.redeemerKey))
+        return "Redeemer's public key does not match referenced output";
+      // Verifies the signature (makes sure that the person trying to spend the funds actually owns them)
+      if(!( sc.verify(input.previousTx, input.sig, input.redeemerKey) ))
+        return "Verifying signature failed."
+      totalInputValue += output.value;
+    }
+
+    let totalOutputValue = 0;
+    for (let output of outputs) {
+      totalOutputValue += output.value;
+    }
+
+    if(totalOutputValue > totalInputVale)
+      return "Not enough funds"
+
+    return "";
   }
 
   /*
-    @desc checks if format of obj1 matches format of obj2. Checks recursively for inner objects.
-    @param ob1 object to check
-    @param obj2 object to check against
+    @desc searches through the ledger to find a transaction
+    @param txHash the hash of the transaction
+    @returns the transaction object (of type Transaction) or null if no transaction is found
   */
-  _isTypeOf(obj1, obj2) {
-    if(typeof obj1 !== 'object') {
+  _searchTransaction(txHash) {
+    const blocks = this.ledger.blocks;
+    // loops through the ledger with most recent blocks first
+    for(let i = blocks.length-1; i>=0; i--) {
+      let block = blocks[i];
+      let transactions = block.transactions;
+      //loops through transactions in block
+      for(let transaction of transaction)
+        if(transaction.hash === txHash) return transaction;
+    }
+    return null;
+  }
+
+  /*
+    @desc searches through the ledger to determine if an output has been referenced
+    @param txHash the hash of the output's transaction
+    @param index the index of the output
+    @returns true if output has been referenced, false if otherwise
+  */
+  _isReferenced(txHash, index) {
+    const blocks = this.ledger.blocks;
+    // loops through ledger with most recent blocks first
+    for(let i = blocks.length-1; i>=0; i--) {
+      let transactions = blocks[i].transactions;
+      // true if the transaction has been passed
+      let passedOutput = false;
+      // loops through transactions in block
+      for(let tx of transactions) {
+        // if transaction hash matches, the output has been passed
+        passedOutput = tx.hash === txHash;
+        let inputs = transactions.inputs;
+        // loops through inputs in the transactions. If the input references the given hash and index, return false
+        for(let input of inputs) if (input.txHash===txHash && input.index===index) return true
+      }
+      // an output cannot be referenced before it has been created. if output has been passed, return false
+      if (passedOutput) return false;
+    }
+    //default to false 
+    return false;
+  }
+
+  /*
+    @desc checks if format of actual matches format of expected. Checks recursively for inner objects.
+    @param actual object to check
+    @param expected object to check against
+  */
+  _isTypeOf(actual, expected) {
+    if(typeof actual !== 'object') {
       return false
     }
-    for(let key in obj2) {
-      if( !obj1.hasOwnProperty(key) || ( typeof obj2[key] === 'object' && !( this._isTypeOf(obj1[key], obj2[key]) ) ) ) return false;
+    // checking format of array
+    if(Array.isArray(expected)) {
+      // if expected is an array, actual must be an
+      if (!Array.isArray(actual)) return false;
+      // if the length of expected is 0, then there is no format to the array. return true
+      if (expected.length === 0) return true;
+      // loop through actual and check if type of each item matches expected
+      for(let item of actual)
+        if(!(this._isTypeOf(item, expected[0]))) return false;
     }
+    // checking format of objects
+    else {
+      for(let prop in expected) {
+        /*
+          if the property names do not match, return false
+          if the expected property is an object, check that the actual property is a type of the expected property
+            otherwise, return false
+        */
+        if( !actual.hasOwnProperty(prop) || ( typeof expected[prop] === 'object' && !( this._isTypeOf(actual[prop], expected[prop]) ) ) ) return false;
+      }
+    }
+    // default to true
     return true;
   }
 
@@ -389,6 +497,9 @@ let testFuncs = [
     obj1.helloArray = [JSON.parse(JSON.stringify(obj1))];
     obj2.helloArray = [JSON.parse(JSON.stringify(obj2))];
     assert(state.testNode._isTypeOf(obj1, obj2));
+    obj1.helloArray.push({differentHello: ""});
+    assert(!state.testNode._isTypeOf(obj1, obj2), "Does not check arrays correctly");
+    obj1.helloArray.pop();
     obj2.helloArray = [{differentHello: ""}];
     assert(!state.testNode._isTypeOf(obj1, obj2));
 
@@ -415,6 +526,6 @@ async function runTests() {
     await testFuncs[testFuncs.length-1]().catch(_errHandler);
   //}
 };
-// runTests();
+ runTests();
 
 module.exports = Node;

@@ -11,6 +11,7 @@ const eventEmitter = new EventEmitter();
 
 const {Blockchain, BlockData} = require("./Blockchain.js");
 const st = require("./StandardTools.js");
+const sc = st.simpleCrypto;
 const fs = require("fs");
 const program = require("commander");
 const Wallet = require("./wallet.js");
