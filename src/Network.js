@@ -86,9 +86,11 @@ class Network {
     let newData = data;
     if(data instanceof Object)
       newData = JSON.stringify(data);
-    Network.listeners[_this.id][location].forEach(function listenerFuncs(func) {
-      func(newData);
-    });
+    if(Network.listeners[_this.id]) {
+      Network.listeners[_this.id][location].forEach(function listenerFuncs(func) {
+        func(newData);
+      });
+    }
   }
 
   static _verifyAddressLocation(address, location) {

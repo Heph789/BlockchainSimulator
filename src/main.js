@@ -267,11 +267,25 @@ program
     console.log(blockchain.verify());
   });
 
+program
+  .command('revert')
+  .alias('r')
+  .description('reverts one block in current node')
+  .action(() => {
+    currentNode.revert()
+  });
+
+program
+  .command('log')
+  .action(() => {
+    console.log("Network: ", Network);
+  });
+
 program.parse(process.argv);
-const obj = {
-  blockchain: blockchain,
-  addresses: addresses
-}
+// const obj = {
+//   blockchain: blockchain,
+//   addresses: addresses
+// }
 
 async function saveState() {
   data = {nodes: nodes};

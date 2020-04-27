@@ -62,7 +62,10 @@ class Wallet {
   }
 
   createAddress() {
-      return sc.createAccount();
+    this.currentAddress = sc.createAccount();
+    this.addresses.push(this.currentAddress);
+    // Be careful with this. May result in modification of this.currentAddress by outside sources.
+    return this.currentAddress;
   }
 
   setAddress(index) {
@@ -101,7 +104,8 @@ class Wallet {
 
   getBalance() {
     let balance = 0;
-    this.outputs[this.currentAddress.pubKey].forEach(function addBalance(output) {balance+=parseInt(output.value)});
+    if(this.outputs[this.currentAddress.pubKey])
+      this.outputs[this.currentAddress.pubKey].forEach(function addBalance(output) {balance+=parseInt(output.value)});
     return balance;
   }
 

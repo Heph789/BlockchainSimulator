@@ -28,7 +28,7 @@ simpleCrypto.createAccount = function() {
     privKey = crypto.randomBytes(32)
   } while (!ec.privateKeyVerify(privKey));
   const pubKey = ec.publicKeyCreate(privKey);
-  return {privKey: privKey, pubKey: pubKey};
+  return {privKey: privKey.toString('hex'), pubKey: pubKey.toString('hex')};
 }
 /*
   @desc signs a 32-byte hex encoded message

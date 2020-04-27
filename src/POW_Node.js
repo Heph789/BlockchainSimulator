@@ -2,7 +2,7 @@
   Specifies the client for running a virtual node that contributes for a proof of work blockchain
 */
 
-const {Transaction, Output, Ledger, BlockData} = require("./Blockchain.js");
+const {Transaction, Output, Input, Ledger, BlockData} = require("./Blockchain.js");
 const st = require("./StandardTools.js");
 const sc = st.simpleCrypto;
 const fs = require('fs');
@@ -130,6 +130,9 @@ class Node {
 
   // Mines a block, adds it to this node's ledger, and broadcasts the ledger
   mineBlock() {
+    if(this.transactions.length === 0) {
+      throw new Error("Cannot mine empty block.");
+    }
     let previousHash = this.ledger.getLastBlock().hash;
     let blockNum = this.ledger.getLastBlock().data.blockNumber+1;
     let myBlockData = new BlockData(blockNum, previousHash, this.transactions, 0, 0);
@@ -170,6 +173,8 @@ class Node {
       console.log("From node " + this.id + ":");
       for (let error of errors)
         console.warn(error);
+      console.log("Block: ", block);
+      console.log("Transactions: ", JSON.stringify(block.data.transactions, null, ' '))
     }
   }
 
@@ -185,14 +190,18 @@ class Node {
   verify(block) {
     let errorMessages = [];
     //this works for now. Fix this later
-    if(!(_isTypeOf(block.data, new BlockData()) && typeof block.hash === "string")) {
+    if(!(block.hasOwnProperty("data") && block.hasOwnProperty("hash")) && !(this._isTypeOf(block.data, new BlockData()) && typeof block.hash === "string")) {
       errorMessages.push("Block data is formatted incorrectly.");
       return errorMessages;
     }
 
     let data = block.data;
     let hash = block.hash;
-
+    // block number of incoming block must be only 1 block ahead of current ledger
+    if(data.blockNumber !== this.ledger.chainSize()) {
+      errorMessages.push("Incoming chain length differs from local chain.");
+      return errorMessages;
+    }
     //previous block hash of the block must match the actual block hash of the last block in this node's ledger
     if(data.blockNumber != 0 && data.previousBlockHash != this.ledger.blocks[data.blockNumber-1].hash)
       errorMessages.push("Hash does not match previous hash: "+ data.previousBlockHash + " != " + this.ledger.getLastBlock().hash);
@@ -205,6 +214,10 @@ class Node {
     if(hash.substring(0, this.config.LEAD.length) !== this.config.LEAD)
       errorMessages.push("Hash does not have correct leading digits.");
 
+    for (let i = 0; i<data.transactions.length; i++) {
+      const verTrans = this._verifyTransaction(data.transactions[i]);
+      if(verTrans.length > 0) errorMessages.push("Transaction " + i + ": " + verTrans)
+    }
     return errorMessages;
   }
 
@@ -221,24 +234,27 @@ class Node {
     }
 
     // Verifies the transaction hash
-    let actualHash = sc.findHash(transaction.data);
+    let actualHash = sc.findHash(JSON.stringify(transaction.data));
     if(!( actualHash === transaction.hash )) {
-      return "Transaction does not match hash.\n\tActual transaction hash: " + actualHash + "\n\tStated transaction hash: ";
+      return "Transaction does not match hash.\n\tActual transaction hash: " + actualHash + "\n\tStated transaction hash: " + transaction.hash;
     }
 
     // Verifies that enough funds are available
     let { inputs, outputs } = transaction.data;
     let totalInputValue = 0;
+    let count = 0;
     for(let input of inputs) {
-      let tx = this._searchTransaction(input.previousTx);
+      let tx = this._searchTransaction(input.previousTx).data;
+      console.log("Transaction " + count + ": ", tx);
+      count++;
       if(tx == null)
         return "Transaction for input does not exist";
-      // Verifies that the referenced output has never been referenced before
-      if(!this._isReferenced(input.previousTx, input.index))
-        return "Output has already been referenced";
       // Verifies that the given index is in the range of real outputs in the referenced transaction
-      if(input.index >= tx.outputs.length)
+      if(input.index < 0 || input.index >= tx.outputs.length)
         return "Output index is out of range. Outputs length: " + tx.outputs.length + ". Index: " + input.index;
+      // Verifies that the referenced output has never been referenced before
+      if(this._isReferenced(input.previousTx, input.index))
+        return "Output has already been referenced";
       const output = tx.outputs[input.index];
       // Verifies that referenced output public address matches the public address of the redeeming account
       if(!(output.pubKey === input.redeemerKey))
@@ -254,7 +270,7 @@ class Node {
       totalOutputValue += output.value;
     }
 
-    if(totalOutputValue > totalInputVale)
+    if(totalOutputValue > totalInputValue)
       return "Not enough funds"
 
     return "";
@@ -269,10 +285,10 @@ class Node {
     const blocks = this.ledger.blocks;
     // loops through the ledger with most recent blocks first
     for(let i = blocks.length-1; i>=0; i--) {
-      let block = blocks[i];
+      let block = blocks[i].data;
       let transactions = block.transactions;
       //loops through transactions in block
-      for(let transaction of transaction)
+      for(let transaction of transactions)
         if(transaction.hash === txHash) return transaction;
     }
     return null;
@@ -288,21 +304,21 @@ class Node {
     const blocks = this.ledger.blocks;
     // loops through ledger with most recent blocks first
     for(let i = blocks.length-1; i>=0; i--) {
-      let transactions = blocks[i].transactions;
+      let transactions = blocks[i].data.transactions;
       // true if the transaction has been passed
       let passedOutput = false;
       // loops through transactions in block
       for(let tx of transactions) {
         // if transaction hash matches, the output has been passed
         passedOutput = tx.hash === txHash;
-        let inputs = transactions.inputs;
+        let inputs = tx.data.inputs;
         // loops through inputs in the transactions. If the input references the given hash and index, return false
         for(let input of inputs) if (input.txHash===txHash && input.index===index) return true
       }
       // an output cannot be referenced before it has been created. if output has been passed, return false
       if (passedOutput) return false;
     }
-    //default to false 
+    //default to false
     return false;
   }
 
@@ -338,6 +354,10 @@ class Node {
     }
     // default to true
     return true;
+  }
+
+  revert() {
+    this.ledger.blocks.pop();
   }
 
   /*
@@ -503,6 +523,9 @@ let testFuncs = [
     obj2.helloArray = [{differentHello: ""}];
     assert(!state.testNode._isTypeOf(obj1, obj2));
 
+    let realTransaction = JSON.parse('{"data":{"inputs":[{"previousTx":"f64d4582d6a8780efc28d0d2766d07297c89050ce3685afe6d472ab8dac5afe6","index":"1","sig":"0ccb311cdfebe368f29559b6c65f157b121e1584c73e274530e0990c8fb93b7c107879ad162a56c8e4deea47e5806cec0d878ed765a5fa917ccf25cbb9210919","redeemerKey":"032cecbd45fcfb498a2a91a65e14506635c6d265f0722c440c800312f5b684d3b0"}],"outputs":[{"value":10,"pubKey":"02d1b0f882f0071b274766ebcbbbd1fcc9cb0836ad684877046ae3f8fa310d1a2d"},{"value":960,"pubKey":"032cecbd45fcfb498a2a91a65e14506635c6d265f0722c440c800312f5b684d3b0"}]},"hash":"c6a9dbe3e2d3fb8008f20a57eec5a3bb15ea122b62b8969cfb55929df488c230"}');
+    assert(state.testNode._isTypeOf(realTransaction, new Transaction([new Input()], [new Output()], "")));
+
     console.log("Yes");
   }
 ];
@@ -526,6 +549,6 @@ async function runTests() {
     await testFuncs[testFuncs.length-1]().catch(_errHandler);
   //}
 };
- runTests();
+// runTests();
 
 module.exports = Node;

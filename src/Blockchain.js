@@ -6,9 +6,9 @@ const _pubKey = "036302e5b318785148af1eb7744a4d2cbd5380d4d8faab29b1f80cd7665f066
 const _privKey = "d287fd14ea6f15635804fa633b6c0ca31598641faa20f50d09d2e147c6106be5";
 
 //@desc The class for a transaction object
-//@param fromAdd The address the transaction is from
-//@param toAdd The address the transaction goes to
-//@param amount Self-explanatory
+//@param inputs The inputs of the transaction (see inputs class)
+//@param outputs The outputs of the transaction (see outputs class)
+//@param hash sha256 hash of transaction data
 class Transaction {
   constructor(inputs, outputs, hash) {
     this.data = {
