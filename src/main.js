@@ -77,7 +77,7 @@ function printStatus() {
 function createNewBlockchain(amount) {
   let intAmount = parseInt(amount);
   let config = CONFIG;
-  config.startingAmount = amount;
+  config.startingAmount = parseInt(amount);
   wallet = new Wallet([], eventEmitter, null);
   nodes = [];
   loadedNodes = [];
@@ -276,9 +276,29 @@ program
   });
 
 program
+  .command('sendCustomTransaction <path>')
+  .alias('sct')
+  .description('allows user to broadcast a custom transaction to all nodes')
+  .action((path) => {
+    const data = fs.readFileSync(path);
+    const transaction = JSON.parse(data);
+    wallet.broadcastTransaction(transaction);
+  });
+
+program
   .command('log')
   .action(() => {
-    console.log("Network: ", Network);
+    // const path = 'custom/alreadyReferencedTransaction.json';
+    // const data = fs.readFileSync(path);
+    // const transaction = JSON.parse(data);
+    // const privKey = wallet.currentAddress.privKey;
+    // const message = transaction.data.inputs[0].previousTx;
+    // const sig = sc.sign(message, privKey);
+    // console.log("Signature: ", sig);
+    // transaction.data.inputs[0].sig = sig;
+    // const txData = JSON.stringify(transaction.data);
+    // console.log("Hash: " + sc.findHash(txData));
+    console.log(currentNode._isReferenced("7d330a68f4c9480565d693fd58cfcfff94feb4d458da54294d37199e38b6cb8f", 0));
   });
 
 program.parse(process.argv);

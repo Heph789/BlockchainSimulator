@@ -130,9 +130,23 @@ class Node {
 
   // Mines a block, adds it to this node's ledger, and broadcasts the ledger
   mineBlock() {
-    if(this.transactions.length === 0) {
-      throw new Error("Cannot mine empty block.");
+    let i = 0;
+    let trueCount = 0;
+
+    while (i<this.transactions.length) {
+      const verTrans = this._verifyTransaction(this.transactions[i]);
+      if(verTrans.length > 0) {
+        console.error("Transaction " + trueCount + ": " + verTrans);
+        // removes transaction if there is an error
+        this.transactions.splice(i, 1);
+      } else i++;
+      trueCount++;
     }
+    if(this.transactions.length === 0) {
+      console.error("Cannot mine empty block.");
+      return;
+    }
+
     let previousHash = this.ledger.getLastBlock().hash;
     let blockNum = this.ledger.getLastBlock().data.blockNumber+1;
     let myBlockData = new BlockData(blockNum, previousHash, this.transactions, 0, 0);
@@ -245,7 +259,6 @@ class Node {
     let count = 0;
     for(let input of inputs) {
       let tx = this._searchTransaction(input.previousTx).data;
-      console.log("Transaction " + count + ": ", tx);
       count++;
       if(tx == null)
         return "Transaction for input does not exist";
@@ -309,11 +322,16 @@ class Node {
       let passedOutput = false;
       // loops through transactions in block
       for(let tx of transactions) {
+        console.log("Transaction: " + tx.hash);
         // if transaction hash matches, the output has been passed
         passedOutput = tx.hash === txHash;
         let inputs = tx.data.inputs;
+        let count = 0;
         // loops through inputs in the transactions. If the input references the given hash and index, return false
-        for(let input of inputs) if (input.txHash===txHash && input.index===index) return true
+        for(let input of inputs) {
+          console.log("Input " + count + ": ", input);
+          if (input.previousTx===txHash && input.index==index) return true
+        }
       }
       // an output cannot be referenced before it has been created. if output has been passed, return false
       if (passedOutput) return false;

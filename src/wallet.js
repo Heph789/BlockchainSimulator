@@ -38,7 +38,7 @@ class Wallet {
       let transaction = fullTransaction.data;
       let outputs = transaction.outputs;
 
-      for (let i in outputs) {
+      for (let i = 0; i<outputs.length; i++) {
         for(let address of this.addresses) {
           if(outputs[i].pubKey == address.pubKey) {
             if(this.outputs[address.pubKey] instanceof Array) {

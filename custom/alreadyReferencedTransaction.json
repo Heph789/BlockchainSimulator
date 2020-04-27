@@ -1,0 +1,19 @@
+{
+  "data": {
+    "inputs": [
+      {
+        "previousTx": "7d330a68f4c9480565d693fd58cfcfff94feb4d458da54294d37199e38b6cb8f",
+        "index": 0,
+        "sig": "882cbb433111ac46f0e66444b51b579402f4b3093722196f017832caf04ef9410a8454cb7e5414b001051e213c334dbaa2e3ca50bc62823336a53c6498fc9702",
+        "redeemerKey": "03cdb9d22fa9d9bfa262d3adf97d61de0658689c33e4f27592b0b3a87f918bd22f"
+      }
+    ],
+    "outputs": [
+      {
+        "value": 500,
+        "pubKey": "02aea772d64d4064e2e2256a15a6b992d8766110ef2b1aa72e2a74c5b87269fe7e"
+      }
+    ]
+  },
+  "hash": "a3c8fc16486673c490937c6c16678ac26a2f2e6f46687b098996ebb5f2472229"
+}
