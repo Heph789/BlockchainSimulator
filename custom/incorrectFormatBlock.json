@@ -1,0 +1,34 @@
+{
+   "data": {
+      "blockNumber": 2,
+      "previousBlockHash": "0db63323787d2c4131c81b66a2c7ef7f2b7c3d477e44166dd1e90b5900fc56bb",
+      "transaction": [
+         {
+            "data": {
+               "inputs": [
+                  {
+                     "previousTx": "d6ffb58c52a637fad8f107c34a4250d4124c675ac788f0b0e1e5daaa50cbb775",
+                     "index": "1",
+                     "sig": "8733a4b827a1dde9e5fa4561e3344cffb7d6f0f763f3429595dd3321165895833ef10d8379472708c29f8e870fdd55ca743a57a76b7e2ac80bf252e4fe153c44",
+                     "redeemerKey": "03cdb9d22fa9d9bfa262d3adf97d61de0658689c33e4f27592b0b3a87f918bd22f"
+                  }
+               ],
+               "outputs": [
+                  {
+                     "value": 10,
+                     "pubKey": "02aea772d64d4064e2e2256a15a6b992d8766110ef2b1aa72e2a74c5b87269fe7e"
+                  },
+                  {
+                     "value": 490,
+                     "pubKey": "03cdb9d22fa9d9bfa262d3adf97d61de0658689c33e4f27592b0b3a87f918bd22f"
+                  }
+               ]
+            },
+            "hash": "2abee6f722cdfc48325ff22587772e38f13f29a0cf5a8b6655079202ac14ac12"
+         }
+      ],
+      "merkleRoot": 0,
+      "nonce": 0
+   },
+   "hash": "05d169768af0c985867dd83c526bb4c395235f071d3b6aeac46af715c5593ffe"
+}

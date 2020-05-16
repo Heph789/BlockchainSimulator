@@ -156,9 +156,13 @@ class Node {
         data: myBlockData,
         hash: hash
       };
+    this._addBlock();
+    this.transactions = [];
+  }
+
+  _addBlock(block) {
     this.ledger.addBlock(block);
     this.broadcastBlock(block);
-    this.transactions = [];
   }
 
   /*
@@ -204,7 +208,7 @@ class Node {
   verify(block) {
     let errorMessages = [];
     //this works for now. Fix this later
-    if(!(block.hasOwnProperty("data") && block.hasOwnProperty("hash")) && !(this._isTypeOf(block.data, new BlockData()) && typeof block.hash === "string")) {
+    if(!(block.hasOwnProperty("data") && block.hasOwnProperty("hash")) || !(this._isTypeOf(block.data, new BlockData()) && typeof block.hash === "string")) {
       errorMessages.push("Block data is formatted incorrectly.");
       return errorMessages;
     }

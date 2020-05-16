@@ -72,7 +72,7 @@ class Wallet {
     this.currentAddress = this.addresses[index];
   }
 
-  transact(toAddress, value) {
+  transact(toAddress, value, changeState) {
     let fromAddress = this.currentAddress.pubKey;
     let privKey = this.currentAddress.privKey;
     // the list of output references belonging to the address trying to send money
@@ -96,9 +96,14 @@ class Wallet {
 
     let transaction = new Transaction(inputs, outputs, null);
     transaction.hash = sc.findHash(JSON.stringify(transaction.data));
-    this.broadcastTransaction(transaction);
-    // removes the used outputs from the wallet's list
-    this.outputs[fromAddress].splice(0, inputs.length);
+    if(changeState) {
+      this.broadcastTransaction(transaction);
+      // removes the used outputs from the wallet's list
+      this.outputs[fromAddress].splice(0, inputs.length);
+    }
+    else {
+      return JSON.stringify(transaction, null, '   ');
+    }
     return true;
   }
 

@@ -109,11 +109,11 @@ function addNode() {
   _addNode(newNode);
 }
 
-function transact(toAddress, amount) {
+function transact(toAddress, amount, changeState) {
   let intAmount = parseInt(amount);
-  let retVal = "success";
+  let retVal;
   try {
-    wallet.transact(toAddress, intAmount);
+    retVal = wallet.transact(toAddress, intAmount, changeState);
   }
   catch (err) {
     retVal = err.message;
@@ -160,14 +160,6 @@ function setNode(index) {
 program
   .version('1.0')
   .description('A simulated and interactive proof of work blockchain');
-
-program
-  .command('addCustomBlock <hash> <nonce> <previousHash>')
-  .alias('acb')
-  .description('adds a custom block to the blockchain using custom <hash> and <nonce>. <previousHash> is supposed to be the hash of the previous block')
-  .action((hash, nonce, previousHash) => {
-    addCustomBlock(hash, nonce, previousHash);
-  });
 
 program
   .command('createAddress')
@@ -229,10 +221,11 @@ program
 
 program
   .command('sendMoney <toAddress> <amount>')
+  .option('-p, --print', 'Prints transaction without affecting wallet state')
   .alias('sm')
   .description('sends money to <toAddress> with the amount <amount>')
-  .action((toAddress, amount) => {
-    console.log(transact(toAddress, amount));
+  .action((toAddress, amount, cmdObject) => {
+    console.log(transact(toAddress, amount, !cmdObject.print));
   });
 
 program
@@ -269,10 +262,18 @@ program
 
 program
   .command('revert')
+  .option('-a, --all', 'Reverts all of the nodes')
   .alias('r')
   .description('reverts one block in current node')
-  .action(() => {
-    currentNode.revert()
+  .action((cmdObj) => {
+    if(cmdObj.all) {
+      for(node of loadedNodes) {
+        node.revert();
+      }
+    }
+    else {
+      currentNode.revert();
+    }
   });
 
 program
@@ -284,6 +285,23 @@ program
     const transaction = JSON.parse(data);
     wallet.broadcastTransaction(transaction);
   });
+
+program
+  .command('addCustomBlock <path>')
+  .option('-b, --broadcast', 'Broadcasts to all nodes instead of adding to a node')
+  .alias('acb')
+  .description('adds a custom block from <path>')
+  .action((path, cmdObject) => {
+    const data = fs.readFileSync(path);
+    const block = JSON.parse(data);
+    if(cmdObject.broadcast) {
+      for(let node of loadedNodes) node.receiveBlock(block);
+      // wallet.receiveBlock(data);
+    }
+    else {
+      currentNode._addBlock(block);
+    }
+  })
 
 program
   .command('log')
@@ -298,7 +316,16 @@ program
     // transaction.data.inputs[0].sig = sig;
     // const txData = JSON.stringify(transaction.data);
     // console.log("Hash: " + sc.findHash(txData));
-    console.log(currentNode._isReferenced("7d330a68f4c9480565d693fd58cfcfff94feb4d458da54294d37199e38b6cb8f", 0));
+
+    const path = 'custom/customBlock.json';
+    const data = fs.readFileSync(path);
+    let block = JSON.parse(data);
+    const previousHash = currentNode.ledger.getLastBlock().hash;
+    const blockNum = currentNode.ledger.getLastBlock().data.blockNumber;
+    block.data.previousBlockHash = previousHash;
+    block.data.blockNumber = blockNum+1;
+    block.hash = st.findNonce(block.data, "1");
+    console.log(JSON.stringify(block, null, "   "));
   });
 
 program.parse(process.argv);
