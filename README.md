@@ -1,7 +1,7 @@
 
 # Blockchain Simulator
 
-Hello! I first started this project a while ago, and I am continuing it for my Honors Computer Science project. I will be creating a program that simulates proof of work (and possibly proof of stake) blockchains. The proof of work blockchain is based off of Satoshi Nakomoto's model ([bitcoin whitepaper)](https://bitcoin.org/bitcoin.pdf\). I will also create a GUI for interacting with this blockchain.
+Hello! I first started this project a while ago, and I am continuing it for my Honors Computer Science project. I will be creating a program that simulates proof of work (and possibly proof of stake) blockchains. The proof of work blockchain is based off of Satoshi Nakomoto's model [bitcoin whitepaper](https://bitcoin.org/bitcoin.pdf). I will also create a GUI for interacting with this blockchain.
 
 
 
