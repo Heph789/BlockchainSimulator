@@ -132,7 +132,6 @@ class Node {
   mineBlock() {
     let i = 0;
     let trueCount = 0;
-
     while (i<this.transactions.length) {
       const verTrans = this._verifyTransaction(this.transactions[i]);
       if(verTrans.length > 0) {
@@ -146,7 +145,6 @@ class Node {
       console.error("Cannot mine empty block.");
       return;
     }
-
     let previousHash = this.ledger.getLastBlock().hash;
     let blockNum = this.ledger.getLastBlock().data.blockNumber+1;
     let myBlockData = new BlockData(blockNum, previousHash, this.transactions, 0, 0);
@@ -156,7 +154,7 @@ class Node {
         data: myBlockData,
         hash: hash
       };
-    this._addBlock();
+    this._addBlock(block);
     this.transactions = [];
   }
 
@@ -326,14 +324,12 @@ class Node {
       let passedOutput = false;
       // loops through transactions in block
       for(let tx of transactions) {
-        console.log("Transaction: " + tx.hash);
         // if transaction hash matches, the output has been passed
         passedOutput = tx.hash === txHash;
         let inputs = tx.data.inputs;
         let count = 0;
         // loops through inputs in the transactions. If the input references the given hash and index, return false
         for(let input of inputs) {
-          console.log("Input " + count + ": ", input);
           if (input.previousTx===txHash && input.index==index) return true
         }
       }

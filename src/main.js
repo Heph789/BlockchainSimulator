@@ -13,7 +13,6 @@ const {Blockchain, BlockData} = require("./Blockchain.js");
 const st = require("./StandardTools.js");
 const sc = st.simpleCrypto;
 const fs = require("fs");
-const program = require("commander");
 const Wallet = require("./wallet.js");
 const Node = require("./POW_Node.js");
 const assert = require('assert').strict;
@@ -32,17 +31,18 @@ function _cast(toCast, obj) {
     toCast[prop] = obj[prop];
 }
 
-let wallet = new Wallet([], eventEmitter, null);
+let wallet;
+var data, nodes, count, currentNode;
+var loadedNodes = [];
+data = {nodes: [], count: 0, currentNode: null};
+
+wallet = new Wallet([], eventEmitter, null);
 try {
   wallet.uploadData("state/wallet.json");
   var availWallet = true;
 } catch(err) {
   var availWallet = false;
 }
-
-var data, nodes, count, currentNode;
-var loadedNodes = [];
-data = {nodes: [], count: 0, currentNode: null};
 
 let rawData = fs.readFileSync("state/state.json");
 if(rawData.length > 0)
@@ -56,8 +56,10 @@ data.nodes.forEach(function loadNode(node) {
     currentNode = loadedNode;
   }
 });
-
 ({nodes, count} = data);
+
+
+
 
 function _addNode(node) {
   count++;
@@ -65,13 +67,6 @@ function _addNode(node) {
   loadedNodes.push(node);
 }
 
-// Prints status items including: list of nodes,
-function printStatus() {
-  console.log("Nodes: " + JSON.stringify(nodes, ["id"]));
-  console.log("Current node: " + currentNode.id);
-  console.log("Current address: " + JSON.stringify(wallet.currentAddress, null, ' '));
-  printLedger();
-}
 
 // creates a new node not connected to an existing network.
 function createNewBlockchain(amount) {
@@ -90,12 +85,12 @@ function createNewBlockchain(amount) {
   _addNode(node);
   wallet.addPeer(node);
   currentNode = node;
-  printStatus();
+  return true;
 }
 
-// prints the ledger of the current node
-function printLedger() {
-  console.log("Ledger: " + currentNode.ledger.toString());
+// returns the ledger of the current node
+function getLedger() {
+  return currentNode.ledger;
 }
 
 // adds a new node using the current node as the peer
@@ -125,210 +120,71 @@ function mineBlock() {
   currentNode.mineBlock();
 }
 
+function getLoadedNodes() {
+  return loadedNodes;
+}
+
 function getNodes() {
   return nodes;
+}
+
+function getWallet() {
+  return wallet;
+}
+
+function getCurrentNode() {
+  return currentNode;
 }
 
 function setNode(index) {
   currentNode = loadedNodes[index];
 }
 
-//
-// function addBlock() {
-//   let previousHash = blockchain.blocks[blockchain.blocks.length-1].hash;
-//   let myBlockData = new BlockData(previousHash, blockchain.transactions, 0, 0);
-//   let hash = st.findNonce(myBlockData, blockchain.LEAD);
-//   blockchain.addBlock(
-//     {
-//       data: myBlockData,
-//       hash: hash
-//     }
-//   );
-// }
-//
-// function addCustomBlock(hash, nonce, previousHash) {
-//   let myBlockData = new BlockData(previousHash, blockchain.transactions, 0, nonce);
-//   blockchain.addBlock(
-//     {
-//       data: myBlockData,
-//       hash: hash
-//     }
-//   );
-// }
+module.exports.addNode = () => {
+  addNode();
+  saveState();
+};
+
+module.exports.createNewAddress = () => {
+  wallet.createAddress();
+  saveState()
+}
+
+module.exports.createNewBlockchain = (amount) => {
+  createNewBlockchain(amount);
+  saveState();
+}
+
+module.exports.mineBlock = () => {
+  mineBlock();
+  saveState();
+}
+
+module.exports.broadcastTransaction = (transaction) => {
+  wallet.broadcastTransaction(transaction);
+  saveState();
+}
+
+module.exports.setAddress = (index) => {
+  wallet.setAddress(index);
+  saveState();
+  return wallet.currentAddress;
+}
+
+module.exports.transact = (toAddress, amount, changeState) => {
+  let ret = transact(toAddress, amount, changeState);
+  saveState();
+  return ret;
+}
+
+module.exports.getNodes = getNodes;
+module.exports.getWallet = getWallet;
+module.exports.getCurrentNode = getCurrentNode;
+module.exports.getLedger = getLedger;
+module.exports.getLoadedNodes = getLoadedNodes;
+module.exports.setNode = setNode;
 
 
-program
-  .version('1.0')
-  .description('A simulated and interactive proof of work blockchain');
-
-program
-  .command('createAddress')
-  .alias('ca')
-  .description('creates a public-private key pair and prints it out')
-  .action(() => {
-    wallet.createAddress();
-    console.log("Addresses: " + JSON.stringify(wallet.addresses, null, " "));
-    console.log("Current address: " + JSON.stringify(wallet.currentAddress, null, " "));
-  });
-
-program
-  .command('createNewBlockchain <amount>')
-  .alias('cb')
-  .description('creates a new blockchain')
-  .action((amount) => {
-    createNewBlockchain(amount);
-  });
-
-program
-  .command('createNewNode')
-  .alias('cn')
-  .description('creates a new node with the current node as a peer')
-  .action(() => {
-    addNode();
-  });
-
-program
-  .command('getBalance')
-  .alias('gb')
-  .description('gets current balance of current account')
-  .action(() => {console.log(wallet.getBalance())});
-
-program
-  .command('listAddresses')
-  .alias('la')
-  .description('list all of the addresses in the wallet and the current address')
-  .action(() => {
-    console.log(wallet.addresses);
-    //console.log("Current address: ");
-    console.log("Current address:\n", wallet.currentAddress);
-  })
-
-program
-  .command('listNodes')
-  .alias('ln')
-  .description('list all of the nodes')
-  .action(() => {
-    console.log("Nodes: ", getNodes());
-  })
-
-program
-  .command('mineBlock')
-  .alias('mb')
-  .description('mines a block')
-  .action(() => {
-    mineBlock();
-  });
-
-program
-  .command('sendMoney <toAddress> <amount>')
-  .option('-p, --print', 'Prints transaction without affecting wallet state')
-  .alias('sm')
-  .description('sends money to <toAddress> with the amount <amount>')
-  .action((toAddress, amount, cmdObject) => {
-    console.log(transact(toAddress, amount, !cmdObject.print));
-  });
-
-program
-  .command('setAddress <index>')
-  .alias('sa')
-  .description('sets the current address to the <index> address with the first being 0')
-  .action((index) => {
-    wallet.setAddress(index);
-    console.log(wallet.currentAddress);
-  });
-
-program
-  .command('setNode <index>')
-  .alias('sn')
-  .description('sets the current node to the node at <index>')
-  .action((index) => {
-    setNode(index);
-  });
-
-program
-  .command('status')
-  .description('prints out the blockchain')
-  .action(() => {
-    printStatus();
-  });
-
-program
-  .command('verifyBlockchain')
-  .alias('v')
-  .description('verifies the blockchain')
-  .action(() => {
-    console.log(blockchain.verify());
-  });
-
-program
-  .command('revert')
-  .option('-a, --all', 'Reverts all of the nodes')
-  .alias('r')
-  .description('reverts one block in current node')
-  .action((cmdObj) => {
-    if(cmdObj.all) {
-      for(node of loadedNodes) {
-        node.revert();
-      }
-    }
-    else {
-      currentNode.revert();
-    }
-  });
-
-program
-  .command('sendCustomTransaction <path>')
-  .alias('sct')
-  .description('allows user to broadcast a custom transaction to all nodes')
-  .action((path) => {
-    const data = fs.readFileSync(path);
-    const transaction = JSON.parse(data);
-    wallet.broadcastTransaction(transaction);
-  });
-
-program
-  .command('addCustomBlock <path>')
-  .option('-b, --broadcast', 'Broadcasts to all nodes instead of adding to a node')
-  .alias('acb')
-  .description('adds a custom block from <path>')
-  .action((path, cmdObject) => {
-    const data = fs.readFileSync(path);
-    const block = JSON.parse(data);
-    if(cmdObject.broadcast) {
-      for(let node of loadedNodes) node.receiveBlock(block);
-      // wallet.receiveBlock(data);
-    }
-    else {
-      currentNode._addBlock(block);
-    }
-  })
-
-program
-  .command('log')
-  .action(() => {
-    // const path = 'custom/alreadyReferencedTransaction.json';
-    // const data = fs.readFileSync(path);
-    // const transaction = JSON.parse(data);
-    // const privKey = wallet.currentAddress.privKey;
-    // const message = transaction.data.inputs[0].previousTx;
-    // const sig = sc.sign(message, privKey);
-    // console.log("Signature: ", sig);
-    // transaction.data.inputs[0].sig = sig;
-    // const txData = JSON.stringify(transaction.data);
-    // console.log("Hash: " + sc.findHash(txData));
-
-    const path = 'custom/customBlock.json';
-    const data = fs.readFileSync(path);
-    let block = JSON.parse(data);
-    const previousHash = currentNode.ledger.getLastBlock().hash;
-    const blockNum = currentNode.ledger.getLastBlock().data.blockNumber;
-    block.data.previousBlockHash = previousHash;
-    block.data.blockNumber = blockNum+1;
-    block.hash = st.findNonce(block.data, "1");
-    console.log(JSON.stringify(block, null, "   "));
-  });
-
-program.parse(process.argv);
 // const obj = {
 //   blockchain: blockchain,
 //   addresses: addresses
@@ -344,10 +200,6 @@ async function saveState() {
   fs.writeFile("state/state.json", JSON.stringify(data), (err) => {if(err) console.log("\n" + err.stack);});
   wallet.saveData("state/wallet.json");
 }
-saveState()
-.catch((err) => console.log("\n" + err.stack));
-
-
 
 
 
