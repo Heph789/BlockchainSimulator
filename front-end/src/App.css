@@ -1,5 +1,7 @@
 .App {
-  text-align: center;
+  display: flex;
+  align-content: stretch;
+  height: 100%;
 }
 
 .App-logo {
@@ -35,4 +37,29 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  min-width: 300px;
+  border: dashed black 1px;
+}
+.menuItem {
+  text-align:center;
+  padding-top: 15px;
+  padding-bottom: 15px;
+  cursor: pointer;
+}
+.menuItem:hover {
+  transition: .5s;
+  background-color: #d4d4d4;
+}
+.menuItem.selected {
+  background-color: #d4d4d4;
+}
+.main {
+  flex: 1;
+  border: dashed black 1px;
 }

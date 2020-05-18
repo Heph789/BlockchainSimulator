@@ -89,7 +89,9 @@ function createNewBlockchain(amount) {
 }
 
 // returns the ledger of the current node
-function getLedger() {
+function getLedger(id) {
+  if(id)
+    return loadedNodes[nodes.indexOf(id)].ledger;
   return currentNode.ledger;
 }
 

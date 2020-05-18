@@ -1,0 +1,56 @@
+#nodeDisplay {
+  width: 100%;
+  height: 100%;
+  overflow: scroll;
+}
+
+.horList {
+  overflow: auto;
+  white-space: nowrap;
+}
+
+.vertList {
+  overflow: auto;
+}
+
+#blocks {
+  margin-top: 50px;
+  margin-left: 50px;
+  max-width: 1000px;
+  padding: 10px 0px;
+}
+
+.block {
+  display: inline-block;
+  vertical-align: top;
+  border: solid 1px;
+  width: 800px;
+  height: 400px;
+  padding: 5px;
+  margin-right: 15px;
+}
+
+#transactions {
+}
+
+.transaction {
+  display: inline-block;
+  border: solid 1px;
+  margin-left: 20px;
+  width: 500px;
+  overflow: auto;
+}
+
+#inputs, #outputs {
+  max-height: 150px;
+}
+
+.input, .output {
+  display: block;
+  border: solid 1px;
+  margin-left: 20px;
+  margin-bottom: 10px;
+  width: 400px;
+  overflow: auto;
+  padding: 5px;
+}

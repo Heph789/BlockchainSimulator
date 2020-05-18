@@ -16,11 +16,12 @@ router.get('/getNodes', function(req, res, next) {
 });
 
 router.get('/getCurrentNode', function(req, res, next) {
-  res.send(api.getCurrentNode().id);
+  res.send(api.getCurrentNode().id.toString());
 });
 
-router.get('/getLedger', function(req, res, next) {
-  res.send(api.getLedger());
+router.get('/getLedger/:id', function(req, res, next) {
+  console.log(typeof req.params.id);
+  res.send(api.getLedger(Number.parseInt(req.params.id)));
 });
 
 /* Sends with format:
@@ -99,6 +100,7 @@ router.post('/setAddress', function(req, res) {
 });
 
 router.post('/setNode', function(req, res) {
+  console.log("Body: ", req.body);
   if(checkForProperties(req.body, {index: "number"})) {
     api.setNode(req.body.index);
     res.sendStatus('200');
